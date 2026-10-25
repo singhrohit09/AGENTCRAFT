@@ -23,12 +23,13 @@ load_dotenv(dotenv_path=REPO_ROOT / ".env")
 
 from backend.routes.agent_routes import router as agent_router
 from backend.routes.rakshagrid_routes import router as rakshagrid_router
+from backend.routes.incident_routes import router as incident_router
 from backend.services.agent_service import agent_service
 
 app = FastAPI(
     title="AgentCraft & RakshaGrid API",
     description="Unified API for AgentCraft AI Engine and RakshaGrid Disaster Intelligence & Response Platform",
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -47,6 +48,7 @@ from fastapi.staticfiles import StaticFiles
 # Register route modules
 app.include_router(agent_router)
 app.include_router(rakshagrid_router)
+app.include_router(incident_router)
 
 APP_START_TIME = time.time()
 
@@ -64,11 +66,12 @@ def root_status():
         "subsystem": "RakshaGrid",
         "competition": "AGENTCRAFT 2026 National AI Agent Challenge",
         "status": "online",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "docs": "/docs",
         "agentcraft_health": "/api/health",
         "rakshagrid_health": "/api/rakshagrid/health",
         "rakshagrid_overview": "/api/rakshagrid/overview",
+        "incidents_v1": "/api/v1/incidents",
     }
 
 

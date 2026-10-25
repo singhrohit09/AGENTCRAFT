@@ -9,12 +9,12 @@
 During acute catastrophic events—such as flash floods, cyclonic storm surges, landslides, wildfires, and earthquakes—coordination between emergency operation centers (EOCs), first responders (NDRF, SDRF, Medical Triage), relief shelters, and vulnerable populations is compromised by fragmented communication and delayed situational intelligence.
 
 RakshaGrid provides a unified operational command console to:
-- Ingest and classify multi-hazard disaster incidents.
+- Ingest and classify multi-hazard disaster incidents with persistent database backing.
 - Track evacuation shelters, available capacity, and critical life-support supplies.
 - Dispatch and monitor specialized emergency response teams and tactical tasks.
 - Broadcast emergency alerts conforming to the **Common Alerting Protocol (CAP v1.2)** standard.
 - Model multi-hazard compound risks and simulate mitigation scenarios.
-- Maintain an immutable audit trail of all command decisions and resource transfers.
+- Maintain an immutable, transactionally enforced audit trail of all command decisions and resource transfers.
 
 ---
 
@@ -33,7 +33,8 @@ flowchart TD
     end
 
     subgraph Backend["Unified Backend Service (FastAPI)"]
-        RGRoutes["/api/rakshagrid/*"]
+        IncRoutes["/api/v1/incidents (Phase 2 Persistent CRUD)"]
+        RGRoutes["/api/rakshagrid/* (Diagnostics & Summaries)"]
         ACRoutes["/api/agent/*"]
         SysRoutes["/api/health & /"]
     end
@@ -44,174 +45,233 @@ flowchart TD
         Verifier[Verification Gates]
     end
 
-    subgraph Database["Persistent Storage Layer"]
+    subgraph Database["Persistent Storage Layer (PostgreSQL / SQLite Test Pool)"]
         PG[(PostgreSQL Database)]
-        Alembic[Alembic Migrations / schema_v1.sql]
+        Alembic[Alembic Migrations / 0002_phase2]
         PG --> Alembic
     end
 
+    RG --> IncRoutes
     RG --> RGRoutes
     AC --> ACRoutes
+    IncRoutes --> Database
     RGRoutes --> Database
     ACRoutes --> CoreEngine
 ```
 
 ---
 
-## 3. Frontend Tactical Operations Console
+## 3. Database Architecture & Data Models (Phase 2)
 
-### Design Principles
-- **Emergency Operations Center Aesthetic**: Utilitarian, mission-critical, high contrast, clean typography.
-- **Harmonious Tactical Palette**:
-  - Dark Charcoal (`#0f1216`, `#151920`, `#1b2029`, `#202732`)
-  - Warm Off-White (`#f3f4f6`, `#e5e7eb`)
-  - Muted Olive (`#3d5242`, `#527357`, `#7da584`)
-  - Restrained Amber (`#d97706`, `#fbbf24`)
-  - Tactical Red (`#dc2626`, `#f87171`)
-- **Responsive Layouts**: Desktop multi-column grid, tablet split view, and mobile stacked navigation with overlay drawer.
-- **Accessible & Transparent**: High contrast ratios; all demo data is explicitly tagged `[FICTIONAL DEMO DATA - PHASE 1 FOUNDATION]` without pretending external APIs or live GPS tracking are connected.
+RakshaGrid uses **SQLAlchemy 2.0** and **Alembic** for version-controlled, relational persistence. Cross-engine compatibility is guaranteed via `sa.Uuid` (native `UUID` in PostgreSQL, string-backed GUID in SQLite test fixtures).
 
-### Main Navigation Structure
-1. **Overview**: Threat status indicator (DEFCON level), KPI cards, active incident summary, urgent alerts feed, operational activity stream.
-2. **Incidents**: Disaster incident registry with search, hazard-type filters (Flood, Cyclone, Landslide, Earthquake, Wildfire), severity filters, and detailed incident inspection modal.
-3. **Live Map**: Tactical geospatial coordinate grid (EPSG:4326), sector status pins, and GIS architecture preview.
-4. **Alerts**: CAP v1.2 emergency broadcast queue with severity filters, evacuation warnings, and target zone advisories.
-5. **Response Teams**: First responder roster (NDRF, SDRF, Medical Triage, Aerial Drone Recon, HAZMAT), unit readiness, and staging bases.
-6. **Tasks**: Priority operational dispatch task board linked to incidents and teams.
-7. **Shelters**: Evacuation camps with real-time capacity progress bars, occupancy counts, power backup, and medical station flags.
-8. **Resources**: Stockpile inventory tracking (trauma kits, inflatable rescue rafts, mobile water purification, generators, rations).
-9. **Risk Analysis**: Multi-hazard risk matrix, calculated vulnerability scores (0–100), and scenario modeling.
-10. **Analytics**: Mobilization latency benchmarks, casualty mitigation rates, and immutable action audits.
-11. **Settings**: PostgreSQL connection probe, declared ORM model inspector, Alembic migration revisions, and OpenAPI documentation links.
+### 3.1 Incident Table (`incidents`)
 
----
-
-## 4. Backend Architecture & API Specifications
-
-Implemented in `backend/routes/rakshagrid_routes.py` and `backend/rakshagrid/service.py`:
-
-| Endpoint | Method | Response Model | Description |
+| Field | Type | Constraints | Description |
 |---|---|---|---|
-| `/api/rakshagrid/health` | GET | `RakshaGridHealthResponse` | Subsystem diagnostics (database, incident engine, alert broadcaster, geospatial indexer, uptime) |
-| `/api/rakshagrid/database/status` | GET | `DatabaseStatusResponse` | PostgreSQL TCP connection test, migration version, model count |
-| `/api/rakshagrid/overview` | GET | `OverviewResponse` | Aggregated tactical metrics, incidents, alerts, and audit stream |
-| `/api/rakshagrid/incidents` | GET | `List[IncidentSummary]` | Query incidents with filters: `disaster_type`, `severity`, `status` |
-| `/api/rakshagrid/alerts` | GET | `List[AlertSummary]` | Query alerts with filters: `severity`, `active_only` |
-| `/api/rakshagrid/teams` | GET | `List[ResponseTeamSummary]` | Query response units with filter: `status` |
-| `/api/rakshagrid/shelters` | GET | `List[ShelterSummary]` | Relief shelter capacities and occupancy utilization |
-| `/api/rakshagrid/config` | GET | `dict` | Public sanitized configuration parameters (no secrets) |
+| `id` | UUID | Primary Key, Indexed | Unique incident identifier |
+| `incident_code` | String(32) | Unique, Indexed | Human-readable tactical code (e.g., `RG-2026-FL-0001`) |
+| `title` | String(255) | Non-null, Min length 5 | Operation/incident title |
+| `description` | Text | Nullable | Detailed incident overview and field observations |
+| `category` | String(64) | Check Enum, Indexed | `flood`, `severe_weather`, `wildfire`, `earthquake`, `landslide`, `industrial_accident`, `other` |
+| `severity` | String(32) | Check Enum, Indexed | `low`, `medium`, `high`, `critical` |
+| `status` | String(32) | Check Enum, Indexed | `reported`, `under_assessment`, `confirmed`, `response_active`, `contained`, `resolved`, `closed` |
+| `latitude` | Numeric(9,6) | Check `-90 <= lat <= 90` | WGS84 Latitude coordinate |
+| `longitude` | Numeric(9,6) | Check `-180 <= lon <= 180` | WGS84 Longitude coordinate |
+| `location_description` | String(255) | Nullable | Human-readable location / sector description |
+| `source_type` | String(32) | Check Enum | `operator_report`, `external_source`, `simulation` |
+| `verification_status` | String(32) | Check Enum | `unverified`, `under_review`, `verified` |
+| `reported_at` | DateTime(tz) | Indexed | Incident reporting timestamp |
+| `created_by` | String(128) | Nullable | User ID / callsign of reporting operator |
+| `assigned_commander` | String(128) | Nullable | Field commander designated for incident response |
+| `affected_population` | Integer | Check `>= 0` | Estimated vulnerable or impacted population |
+| `created_at` | DateTime(tz) | Non-null, Server default | Creation timestamp |
+| `updated_at` | DateTime(tz) | Non-null, Auto-updated | Last modification timestamp |
+
+### 3.2 Incident Timeline & History Table (`incident_updates`)
+
+Every meaningful modification, state transition, and situation report is transactionally recorded in `incident_updates`. Normal users cannot modify or delete historical records.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | UUID | Primary Key |
+| `incident_id` | UUID | Foreign Key -> `incidents.id` (ON DELETE CASCADE) |
+| `actor_id` | String(128) | User / operator ID or system agent responsible for update |
+| `previous_status` | String(32) | Prior status value before transition (null for sitreps) |
+| `new_status` | String(32) | Resulting status value after transition |
+| `update_type` | String(64) | `status_change`, `situation_report`, `operator_note`, `operational_dispatch`, `system_event` |
+| `update_message` | Text | Human-readable audit narrative or sitrep text |
+| `metadata_payload` | JSON / Text | Structured context (changed fields, client IP, coordinates) |
+| `created_at` | DateTime(tz) | Timestamp of event recording (indexed, chronological) |
+
+### 3.3 Transaction Handling & History Guarantees
+All incident creations and updates execute inside atomic SQLAlchemy transactions. If an error occurs while persisting timeline history, the entire transaction rolls back cleanly, preventing orphan state.
 
 ---
 
-## 5. Database Schema & Migration Foundation
+## 4. RESTful API Endpoints (`/api/v1/incidents`)
 
-Database models reside in `backend/rakshagrid/models.py`. All 11 required entities are fully specified with UUID primary keys, foreign keys, timestamps, check constraints, and performance indexes:
+Implemented in `backend/routes/incident_routes.py` with service logic in `backend/rakshagrid/incident_service.py`:
 
-1. `incidents`: Disaster code, title, hazard type, severity, status, latitude, longitude, affected region, casualties, description.
-2. `incident_updates`: Situation reports, author, role, verification flag, timestamp.
-3. `alerts`: CAP v1.2 alert code, headline, urgency, severity, certainty, evacuation flag, instructions, broadcast status.
-4. `response_teams`: Callsign, unit type, personnel count, commander, contact channel, operational status, base location.
-5. `response_tasks`: Incident link, assigned team link, priority, status, due timestamp.
-6. `shelters`: Name, facility type, capacity, occupancy, coordinates, address, contact, supplies status, backup power, medical station.
-7. `resources`: Resource code, category, total quantity, available quantity, unit, shelter link.
-8. `resource_movements`: Movement audit, source, destination, transport mode, delivery status.
-9. `environmental_observations`: Sensor station telemetry, metric type, value, alert status.
-10. `risk_assessments`: Target area, hazard type, calculated score (0-100), risk level, recommended interventions.
-11. `audit_logs`: Immutable action trail, actor role, entity ID, action payload, timestamp.
+| Method | Endpoint | Allowed Roles | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/incidents` | Public / All | Paginated incident list with filtering (`category`, `severity`, `status`, `verification_status`), text search, and sorting. Page size capped at 100. |
+| `POST` | `/api/v1/incidents` | Operator, Commander, Admin | Create and persist new incident with automatic history creation. |
+| `GET` | `/api/v1/incidents/{id}` | Public / All | Retrieve full incident details by UUID. Returns 404 if not found. |
+| `PATCH` | `/api/v1/incidents/{id}` | Operator, Commander, Admin | Update permitted incident fields, enforce state progression rules, and record audit update. |
+| `GET` | `/api/v1/incidents/{id}/updates` | Public / All | Retrieve chronological timeline and situation reports for an incident. |
+| `POST` | `/api/v1/incidents/{id}/updates` | Operator, Commander, Admin | Post situation report or operational note to the incident timeline. |
+| `DELETE` | `/api/v1/incidents/{id}` | Admin, Commander | Soft-archive incident (status set to `closed`) to preserve operational integrity. |
+| `POST` | `/api/v1/incidents/seed` | Admin, Commander | Insert deterministic fictional development records (`source_type: simulation`). |
 
-### Migration Tooling
-- **Alembic Configuration**: `alembic.ini` and `backend/database/migrations/`
-- **Initial Migration**: `backend/database/migrations/versions/0001_initial_rakshagrid_schema.py`
-- **Idempotent SQL DDL**: `backend/database/migrations/0001_initial_rakshagrid_schema.sql`
+### Example Request: Create Incident
+```http
+POST /api/v1/incidents HTTP/1.1
+Content-Type: application/json
+X-Rakshagrid-Dev-Role: operator
+X-Rakshagrid-Dev-User: ops-srinagar-01
 
-To apply migrations against a configured PostgreSQL database:
+{
+  "title": "Severe Riverine Inundation in Srinagar Ward 4",
+  "category": "flood",
+  "severity": "high",
+  "status": "reported",
+  "latitude": 34.0837,
+  "longitude": 74.7973,
+  "location_description": "Upper Jhelum Basin, Rajbagh Perimeter",
+  "affected_population": 4500,
+  "source_type": "operator_report",
+  "verification_status": "verified",
+  "description": "Embankment breach reported near Rajbagh. Water levels rising rapidly."
+}
+```
+
+---
+
+## 5. Security & Authorization
+
+RakshaGrid implements a tiered role-based access control (RBAC) model:
+- **`public`**: Unauthenticated read access to verified incidents and alerts. Cannot create or modify records.
+- **`operator`**: Authenticated triage operators who can log incidents, file sitreps, and transition statuses.
+- **`commander`**: Tactical incident commanders who can assign response teams, update risk posture, and archive records.
+- **`admin`**: System administrators with full administrative capabilities.
+
+### Development Mode vs. Production Authentication
+- In development (`RAKSHAGRID_DEV_AUTH_ENABLED=true`), simulated identity headers (`X-Rakshagrid-Dev-Role`, `X-Rakshagrid-Dev-User`) are accepted for local testing.
+- When `RAKSHAGRID_DEV_AUTH_ENABLED=false` (production), simulated headers are strictly rejected and cryptographic JWT bearer token verification is enforced.
+
+---
+
+## 6. Frontend Tactical Operations Console (Phase 2)
+
+The React 19 frontend is connected directly to `/api/v1/incidents`:
+- **Live Persistence**: Refreshing the browser preserves all database records.
+- **Interactive Triage Form**: Complete validation of titles, coordinate boundaries (-90 to 90 / -180 to 180), and non-negative populations.
+- **Chronological Timeline**: Visual audit feed displaying state transitions and operator sitreps.
+- **State Transition Controls**: Interactive progression dropdowns enforcing operational lifecycle rules.
+- **Search & Filters**: Debounced multi-field search and category/severity/status filtering.
+- **Graceful Error Handling**: If PostgreSQL is unreachable, a clear `ErrorState` prompt is shown with retry controls instead of silently falling back to mock data.
+
+---
+
+## 7. Development Seed Script
+
+To populate a local development database with deterministic, clearly tagged simulated records:
 ```bash
+# Via Python CLI:
+.\.venv\Scripts\python.exe -m backend.scripts.seed_dev_data
+
+# Or via REST API:
+curl -X POST http://127.0.0.1:8000/api/v1/incidents/seed -H "X-Rakshagrid-Dev-Role: admin"
+```
+
+All seeded incidents:
+- Use codes `RG-2026-SIM-0001` through `RG-2026-SIM-0005`.
+- Are explicitly flagged with `source_type: "simulation"`.
+- Are idempotent: running the command multiple times will not create duplicates.
+
+---
+
+## 8. Migration Commands
+
+To manage PostgreSQL schema versions:
+```bash
+# Check current migration revision
+alembic current
+
+# Apply all migrations to head
 alembic upgrade head
+
+# Downgrade one revision
+alembic downgrade -1
 ```
+
+Migration revisions:
+- `0001_initial_rakshagrid_schema.py`: Initial 11-table schema models.
+- `0002_phase2_incident_management.py`: Enhanced incident and timeline fields, check constraints, and performance indexes.
 
 ---
 
-## 6. Environment Variables
+## 9. Verification & Test Suite
 
-Configure these settings in `.env` (derived from `.env.example`):
+All 69 automated tests pass cleanly without requiring external network access:
 
 ```bash
-# RakshaGrid Operational Settings
-RAKSHAGRID_ENV=development
-RAKSHAGRID_DEMO_MODE=true
-RAKSHAGRID_DEFCON_LEVEL=2
-RAKSHAGRID_ALERT_THRESHOLD=MODERATE
-
-# PostgreSQL Credentials
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=rakshagrid
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=
-# Or explicit URI override:
-# DATABASE_URL=postgresql+psycopg://postgres:secret@localhost:5432/rakshagrid
+.\.venv\Scripts\python.exe -m pytest ai/tests backend/tests -v
 ```
 
-*Note: If PostgreSQL is not running locally, RakshaGrid starts safely in demonstration fallback mode without crashing.*
+Test coverage includes:
+- AgentCraft core reasoning loop & tool sandboxes (28 tests)
+- AgentCraft API & verification endpoints (14 tests)
+- RakshaGrid subsystem diagnostics & health (11 tests)
+- RakshaGrid Phase 2 Incident Management API (16 tests):
+  - Incident creation and title validation
+  - Normalization of legacy categories/severities
+  - Coordinate bounds validation (lat [-90, 90], lon [-180, 180])
+  - Non-negative population check
+  - Invalid UUID format rejection (422)
+  - Missing incident rejection (404)
+  - Max page size enforcement (<= 100)
+  - Database persistence and transaction rollback on audit failure
+  - Valid and invalid status transitions
+  - Chronological timeline logging
+  - Search and multi-filter querying
+  - Role-based authorization & archival workflow
+  - Deterministic dev seeder idempotence
 
----
-
-## 7. How to Run Locally
-
-### 1. Backend Service
-```bash
-.\.venv\Scripts\Activate.ps1
-python -m backend.app
-# Runs on http://127.0.0.1:8000 (OpenAPI docs at /docs)
-```
-
-### 2. Frontend Development Server
-```bash
-cd frontend
-npm run dev
-# Runs on http://localhost:3000 (proxies /api to port 8000)
-```
-
-### 3. Unified Production Serving
+Frontend build verification:
 ```bash
 cd frontend
-npm run build
-cd ..
-python -m backend.app
-# Access complete application at http://127.0.0.1:8000
+npm run lint    # 0 errors
+npm run build   # Production bundle built in 215ms
 ```
 
 ---
 
-## 8. Verification Results
-
-All automated verification gates have executed cleanly:
-
-- **Pytest Suite**: 53 passed in 19s:
-  - 42 existing AgentCraft agent & backend tests
-  - 11 new RakshaGrid API, database status, and model registration tests
-- **Frontend Build**: Vite 8 production build transformed 32 modules with 0 errors (`dist/index.html` 0.99 kB, `dist/assets/index-LYiELaNH.js` 307 kB).
-- **Linter**: Oxlint executed with 0 errors across all frontend files.
-
----
-
-## 9. Phase Roadmap
+## 10. Phase Roadmap
 
 ### Completed in Phase 1
 - [x] Application shell, responsive sidebar, and tactical navigation for all 11 modules.
 - [x] Dark charcoal, warm off-white, muted olive, and restrained amber/red design system.
 - [x] Overview dashboard with threat level, KPI cards, incident tables, and alert streams.
-- [x] Dedicated view components for Incidents, Live Map, Alerts, Teams, Tasks, Shelters, Resources, Risk Analysis, Analytics, and Settings.
-- [x] Structured loading, empty, and error states; clear demonstration data labels.
-- [x] Backend RakshaGrid module with `/api/rakshagrid/health`, `/overview`, `/database/status`, and query endpoints.
-- [x] 11 SQLAlchemy PostgreSQL models and Alembic version-controlled migration files.
-- [x] Pydantic v2 validation and non-blocking database connection testing.
-- [x] Full test suite (53 tests passing).
+- [x] Dedicated view components for all 11 modules.
+- [x] 11 SQLAlchemy models and Alembic migration foundation.
+- [x] 53 passing automated tests.
 
-### Deferred to Phase 2
-- [ ] Live PostgreSQL database connection and data ingestion persistence.
-- [ ] Interactive incident reporting and casualty update forms.
-- [ ] Leaflet / Mapbox GIS map integration with dark vector tile rendering and polygon overlays.
-- [ ] CAP v1.2 alert dispatch to external SMS/VHF broadcaster gateways.
-- [ ] Drag-and-drop task dispatch and team mobilization tracking.
-- [ ] Dynamic shelter check-in/check-out barcode intake.
+### Completed in Phase 2
+- [x] PostgreSQL database connection configuration & session lifecycle management.
+- [x] Persistent `incidents` and `incident_updates` tables with check constraints and indexes.
+- [x] Transactional consistency: creation and updates recorded in history atomically with rollback.
+- [x] RESTful incident management API (`/api/v1/incidents`) with filtering, search, and pagination.
+- [x] Pydantic v2 validation schemas and status transition validation.
+- [x] Server-side role-based authorization with safe development mode.
+- [x] React 19 frontend integration with real `/api/v1/incidents` backend.
+- [x] Incident detail modal with chronological timeline and sitrep submission form.
+- [x] Deterministic development seeder (`backend/scripts/seed_dev_data.py`).
+- [x] 69 passing automated tests.
+
+### Deferred to Phase 3
+- [ ] Leaflet / Mapbox GIS map integration with dark vector tile rendering and live incident markers.
+- [ ] CAP v1.2 alert broadcast engine with multi-channel dispatch simulation.
+- [ ] Tactical response team mobilization and resource tracking.
+- [ ] Relief shelter occupancy management and check-in barcode workflows.

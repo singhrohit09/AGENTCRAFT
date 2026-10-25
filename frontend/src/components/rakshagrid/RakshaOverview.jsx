@@ -41,12 +41,7 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
         <div className="rg-page-controls">
           <button
             className="rg-btn rg-btn-primary"
-            onClick={() =>
-              handleQuickAction(
-                'Report New Incident',
-                'Phase 1 Foundation: New incident triage is simulated in memory. Complete intake forms with GIS geocoding and PostgreSQL persistence are scheduled for Phase 2.'
-              )
-            }
+            onClick={() => onNavigate && onNavigate('incidents')}
           >
             + Report Incident
           </button>

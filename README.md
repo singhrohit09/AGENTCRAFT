@@ -4,7 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.0+-646CFF.svg)](https://vitejs.dev/)
-[![Test Suite](https://img.shields.io/badge/Tests-53%20Passed-10b981.svg)]()
+[![Test Suite](https://img.shields.io/badge/Tests-69%20Passed-10b981.svg)]()
 [![Benchmark Verdict](https://img.shields.io/badge/Benchmark-CERTIFIED%20(100%25)-00f0ff.svg)]()
 [![Challenge](https://img.shields.io/badge/Challenge-AGENTCRAFT%202026-a855f7.svg)]()
 
@@ -57,16 +57,22 @@ AgentCraft/
 │   ├── app.py                           # FastAPI application entrypoint & static mount
 │   ├── database/                        # Database sessions, connection pools & migrations
 │   │   ├── session.py                   # Engine, session factory & connection test
-│   │   └── migrations/                  # Alembic versions & 0001_initial_rakshagrid_schema
+│   │   └── migrations/                  # Alembic versions & 0002_phase2_incident_management
 │   ├── rakshagrid/                      # RakshaGrid disaster intelligence subsystem
 │   │   ├── config.py                    # Settings & environment validation
+│   │   ├── auth.py                      # Role-based authorization & dev auth mode
 │   │   ├── models.py                    # 11 PostgreSQL SQLAlchemy ORM models
-│   │   ├── schemas.py                   # Pydantic v2 request/response schemas
+│   │   ├── incident_schemas.py          # Phase 2 incident CRUD Pydantic v2 schemas
+│   │   ├── incident_service.py          # Transactional incident & audit timeline service
+│   │   ├── schemas.py                   # Phase 1 diagnostic schemas
 │   │   └── service.py                   # Diagnostic checks & disaster telemetry
 │   ├── routes/
 │   │   ├── __init__.py                  # Route exports
 │   │   ├── agent_routes.py              # AgentCraft agent REST API
+│   │   ├── incident_routes.py           # Phase 2 /api/v1/incidents REST endpoints
 │   │   └── rakshagrid_routes.py         # RakshaGrid disaster operations API
+│   ├── scripts/
+│   │   └── seed_dev_data.py             # Deterministic development incident seeder
 │   ├── services/
 │   │   ├── __init__.py                  # Service exports
 │   │   ├── agent_service.py             # Session lifecycle & execution service
@@ -74,6 +80,7 @@ AgentCraft/
 │   └── tests/
 │       ├── test_api.py                  # API happy-path & workflow tests
 │       ├── test_failures.py             # 404s, invalid payloads, and validation errors
+│       ├── test_incidents_api.py        # Phase 2 Incident API & persistence tests (16 tests)
 │       └── test_rakshagrid_api.py       # RakshaGrid API & database models tests
 ├── docs/
 │   ├── RAKSHAGRID.md                    # RakshaGrid disaster platform architecture & setup

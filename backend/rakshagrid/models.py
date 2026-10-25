@@ -5,9 +5,10 @@ Implements UUID primary keys, relational foreign keys, indexed query paths,
 and timestamped audit records.
 """
 
+import json
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -19,9 +20,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    func,
+    Uuid,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from backend.database.session import Base
@@ -34,61 +34,164 @@ def utcnow():
 class Incident(Base):
     """
     Primary Disaster Incident Entity.
-    Represents an active, monitoring, or historical disaster event (flood, cyclone, earthquake, etc.).
+    Represents an active, monitored, or historical disaster event.
     """
 
     __tablename__ = "incidents"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     incident_code = Column(String(50), unique=True, nullable=False, index=True)
     title = Column(String(255), nullable=False)
-    disaster_type = Column(String(50), nullable=False, index=True)  # flood, cyclone, earthquake, wildfire, landslide, industrial
-    severity = Column(String(20), nullable=False, index=True)  # critical, severe, moderate, minor
-    status = Column(String(20), nullable=False, index=True, default="active")  # active, contained, assessing, closed
-    
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    location_name = Column(String(255), nullable=False)
-    affected_region = Column(String(255), nullable=False)
-    affected_population_estimate = Column(Integer, default=0)
-    casualty_count_estimate = Column(Integer, default=0)
-    
     description = Column(Text, nullable=True)
-    reported_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    # Required Phase 2 Fields
+    category = Column(String(50), nullable=False, index=True, default="other")
+    severity = Column(String(20), nullable=False, index=True, default="medium")
+    status = Column(String(30), nullable=False, index=True, default="reported")
+
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    location_description = Column(String(255), nullable=True)
+
+    source_type = Column(String(50), nullable=False, default="operator_report", index=True)
+    verification_status = Column(String(30), nullable=False, default="unverified", index=True)
+
+    reported_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    created_by = Column(String(100), nullable=False, default="system")
+    assigned_commander = Column(String(100), nullable=True)
+    affected_population = Column(Integer, nullable=True, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     # Relationships
-    updates = relationship("IncidentUpdate", back_populates="incident", cascade="all, delete-orphan")
+    updates = relationship(
+        "IncidentUpdate",
+        back_populates="incident",
+        cascade="all, delete-orphan",
+        order_by="desc(IncidentUpdate.created_at)",
+    )
     alerts = relationship("Alert", back_populates="incident")
     tasks = relationship("ResponseTask", back_populates="incident", cascade="all, delete-orphan")
     risk_assessments = relationship("RiskAssessment", back_populates="incident")
 
     __table_args__ = (
-        Index("ix_incidents_type_status", "disaster_type", "status"),
+        Index("ix_incidents_category_status", "category", "status"),
         Index("ix_incidents_lat_lon", "latitude", "longitude"),
-        CheckConstraint("severity IN ('critical', 'severe', 'moderate', 'minor')", name="ck_incident_severity"),
-        CheckConstraint("status IN ('active', 'contained', 'assessing', 'closed')", name="ck_incident_status"),
+        CheckConstraint(
+            "category IN ('flood', 'severe_weather', 'wildfire', 'earthquake', 'landslide', 'industrial_accident', 'other')",
+            name="ck_incident_category",
+        ),
+        CheckConstraint(
+            "severity IN ('low', 'medium', 'high', 'critical')",
+            name="ck_incident_severity",
+        ),
+        CheckConstraint(
+            "status IN ('reported', 'under_assessment', 'confirmed', 'response_active', 'contained', 'resolved', 'closed')",
+            name="ck_incident_status",
+        ),
+        CheckConstraint(
+            "source_type IN ('operator_report', 'external_source', 'simulation')",
+            name="ck_incident_source_type",
+        ),
+        CheckConstraint(
+            "verification_status IN ('unverified', 'under_review', 'verified')",
+            name="ck_incident_verification_status",
+        ),
+        CheckConstraint(
+            "latitude IS NULL OR (latitude >= -90.0 AND latitude <= 90.0)",
+            name="ck_incident_latitude",
+        ),
+        CheckConstraint(
+            "longitude IS NULL OR (longitude >= -180.0 AND longitude <= 180.0)",
+            name="ck_incident_longitude",
+        ),
+        CheckConstraint(
+            "affected_population IS NULL OR affected_population >= 0",
+            name="ck_incident_affected_pop",
+        ),
     )
+
+    # Backward compatibility properties for Phase 1 code
+    @property
+    def disaster_type(self) -> str:
+        return self.category
+
+    @disaster_type.setter
+    def disaster_type(self, value: str):
+        self.category = value
+
+    @property
+    def location_name(self) -> str:
+        return self.location_description or "Unspecified Location"
+
+    @location_name.setter
+    def location_name(self, value: str):
+        self.location_description = value
+
+    @property
+    def affected_region(self) -> str:
+        return self.location_description or "Regional Operations"
+
+    @property
+    def affected_population_estimate(self) -> int:
+        return self.affected_population or 0
+
+    @affected_population_estimate.setter
+    def affected_population_estimate(self, value: int):
+        self.affected_population = value
+
+    @property
+    def casualty_count_estimate(self) -> int:
+        return 0
 
 
 class IncidentUpdate(Base):
     """
-    Chronological Field and Situation Report Updates for an Incident.
+    Chronological Field, Status, and Situation Report History for an Incident.
+    Guarantees immutable historical audit log of all changes.
     """
 
     __tablename__ = "incident_updates"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
-    author_name = Column(String(100), nullable=False)
-    author_role = Column(String(100), nullable=False)  # e.g., On-site Incident Commander, NDRF Lead, Drone Operator
-    update_type = Column(String(50), nullable=False)  # situation_report, casualty_update, containment, weather, evacuation
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id = Column(String(100), nullable=True, index=True, default="system")
+
+    previous_status = Column(String(30), nullable=True)
+    new_status = Column(String(30), nullable=True)
+
+    update_type = Column(String(50), nullable=False, default="situation_report", index=True)
     message = Column(Text, nullable=False)
+    metadata_payload = Column(Text, nullable=True)  # JSON-encoded structured audit context
+
     verified = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
 
     incident = relationship("Incident", back_populates="updates")
+
+    # Backward compatibility properties
+    @property
+    def author_name(self) -> str:
+        return self.actor_id or "System Operator"
+
+    @author_name.setter
+    def author_name(self, val: str):
+        self.actor_id = val
+
+    @property
+    def author_role(self) -> str:
+        return "Field Commander"
+
+    @property
+    def parsed_metadata(self) -> Dict[str, Any]:
+        if not self.metadata_payload:
+            return {}
+        try:
+            return json.loads(self.metadata_payload)
+        except Exception:
+            return {}
 
 
 class Alert(Base):
@@ -99,17 +202,17 @@ class Alert(Base):
 
     __tablename__ = "alerts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
     alert_code = Column(String(50), unique=True, nullable=False, index=True)
     headline = Column(String(255), nullable=False)
-    urgency = Column(String(20), nullable=False)  # immediate, expected, future, past
-    severity = Column(String(20), nullable=False, index=True)  # extreme, severe, moderate, minor
-    certainty = Column(String(20), nullable=False)  # observed, likely, possible, unlikely
+    urgency = Column(String(20), nullable=False)
+    severity = Column(String(20), nullable=False, index=True)
+    certainty = Column(String(20), nullable=False)
     target_region = Column(String(255), nullable=False)
     evacuation_recommended = Column(Boolean, default=False, nullable=False)
     instructions = Column(Text, nullable=False)
-    broadcast_status = Column(String(20), nullable=False, default="active", index=True)  # active, expired, cancelled, draft
+    broadcast_status = Column(String(20), nullable=False, default="active", index=True)
     
     issued_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=True)
@@ -129,18 +232,18 @@ class ResponseTeam(Base):
 
     __tablename__ = "response_teams"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     team_callsign = Column(String(100), unique=True, nullable=False, index=True)
-    unit_type = Column(String(50), nullable=False, index=True)  # ndrf, sdrf, medical_triage, fire_rescue, hazmat, aerial_drone, logistics
+    unit_type = Column(String(50), nullable=False, index=True)
     personnel_count = Column(Integer, nullable=False, default=1)
     commander_name = Column(String(100), nullable=False)
-    contact_channel = Column(String(100), nullable=False)  # VHF channel, satellite comms, cellular
-    current_status = Column(String(30), nullable=False, default="standby", index=True)  # deployed, standby, en_route, resting, off_duty
+    contact_channel = Column(String(100), nullable=False)
+    current_status = Column(String(30), nullable=False, default="standby", index=True)
     
     current_latitude = Column(Float, nullable=True)
     current_longitude = Column(Float, nullable=True)
     base_location = Column(String(255), nullable=False)
-    assigned_base_shelter_id = Column(UUID(as_uuid=True), ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True)
+    assigned_base_shelter_id = Column(Uuid, ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -156,13 +259,13 @@ class ResponseTask(Base):
 
     __tablename__ = "response_tasks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
-    assigned_team_id = Column(UUID(as_uuid=True), ForeignKey("response_teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_team_id = Column(Uuid, ForeignKey("response_teams.id", ondelete="SET NULL"), nullable=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    priority = Column(String(20), nullable=False, default="high", index=True)  # critical, high, medium, low
-    status = Column(String(20), nullable=False, default="pending", index=True)  # pending, assigned, in_progress, completed, aborted
+    priority = Column(String(20), nullable=False, default="high", index=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
     
     target_latitude = Column(Float, nullable=True)
     target_longitude = Column(Float, nullable=True)
@@ -182,9 +285,9 @@ class Shelter(Base):
 
     __tablename__ = "shelters"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, index=True)
-    shelter_type = Column(String(50), nullable=False)  # school, stadium, community_center, temporary_tent, medical_camp
+    shelter_type = Column(String(50), nullable=False)
     capacity = Column(Integer, nullable=False)
     current_occupancy = Column(Integer, nullable=False, default=0)
     
@@ -194,10 +297,10 @@ class Shelter(Base):
     contact_person = Column(String(100), nullable=False)
     contact_phone = Column(String(50), nullable=False)
     
-    supplies_status = Column(String(30), nullable=False, default="adequate")  # adequate, low, critical
+    supplies_status = Column(String(30), nullable=False, default="adequate")
     power_backup = Column(Boolean, default=True, nullable=False)
     medical_station = Column(Boolean, default=True, nullable=False)
-    status = Column(String(20), nullable=False, default="open", index=True)  # open, full, standby, closed
+    status = Column(String(20), nullable=False, default="open", index=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -212,14 +315,14 @@ class Resource(Base):
 
     __tablename__ = "resources"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     resource_code = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
-    category = Column(String(50), nullable=False, index=True)  # medical, food_water, rescue_equipment, shelter_gear, power_fuel
+    category = Column(String(50), nullable=False, index=True)
     quantity_total = Column(Float, nullable=False, default=0.0)
     quantity_available = Column(Float, nullable=False, default=0.0)
-    unit = Column(String(50), nullable=False)  # units, liters, metric_tons, kits, packs
-    shelter_id = Column(UUID(as_uuid=True), ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True, index=True)
+    unit = Column(String(50), nullable=False)
+    shelter_id = Column(Uuid, ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -235,13 +338,13 @@ class ResourceMovement(Base):
 
     __tablename__ = "resource_movements"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    resource_id = Column(UUID(as_uuid=True), ForeignKey("resources.id", ondelete="RESTRICT"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    resource_id = Column(Uuid, ForeignKey("resources.id", ondelete="RESTRICT"), nullable=False, index=True)
     source_location = Column(String(255), nullable=False)
     destination_location = Column(String(255), nullable=False)
     quantity = Column(Float, nullable=False)
-    status = Column(String(30), nullable=False, default="dispatched", index=True)  # requested, dispatched, in_transit, delivered, cancelled
-    transport_mode = Column(String(50), nullable=False)  # road_truck, airlift_helo, boat, foot_courier
+    status = Column(String(30), nullable=False, default="dispatched", index=True)
+    transport_mode = Column(String(50), nullable=False)
     
     dispatched_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     delivered_at = Column(DateTime(timezone=True), nullable=True)
@@ -257,15 +360,15 @@ class EnvironmentalObservation(Base):
 
     __tablename__ = "environmental_observations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     station_id = Column(String(100), nullable=False, index=True)
     station_name = Column(String(255), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    metric_type = Column(String(50), nullable=False, index=True)  # water_level_meters, rainfall_mm_hr, wind_gust_kmh, seismic_magnitude
+    metric_type = Column(String(50), nullable=False, index=True)
     value = Column(Float, nullable=False)
     unit = Column(String(30), nullable=False)
-    status = Column(String(20), nullable=False, default="nominal", index=True)  # nominal, warning, alert, emergency
+    status = Column(String(20), nullable=False, default="nominal", index=True)
     
     recorded_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -278,13 +381,13 @@ class RiskAssessment(Base):
 
     __tablename__ = "risk_assessments"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
     target_area = Column(String(255), nullable=False)
     hazard_type = Column(String(50), nullable=False)
-    calculated_risk_score = Column(Float, nullable=False)  # 0.0 to 100.0
-    risk_level = Column(String(20), nullable=False, index=True)  # low, moderate, high, extreme
-    simulated_factors = Column(Text, nullable=True)  # JSON-encoded factors
+    calculated_risk_score = Column(Float, nullable=False)
+    risk_level = Column(String(20), nullable=False, index=True)
+    simulated_factors = Column(Text, nullable=True)
     recommended_interventions = Column(Text, nullable=False)
     
     assessed_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -300,13 +403,13 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     actor_id = Column(String(100), nullable=False, index=True)
     actor_role = Column(String(100), nullable=False)
-    action = Column(String(100), nullable=False, index=True)  # dispatch_team, issue_alert, reallocate_supplies, change_status
-    entity_type = Column(String(50), nullable=False)  # incident, alert, team, task, shelter
+    action = Column(String(100), nullable=False, index=True)
+    entity_type = Column(String(50), nullable=False)
     entity_id = Column(String(100), nullable=False)
-    details = Column(Text, nullable=True)  # JSON-encoded change payload
+    details = Column(Text, nullable=True)
     ip_address = Column(String(50), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)

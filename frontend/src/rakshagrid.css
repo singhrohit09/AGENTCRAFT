@@ -850,3 +850,302 @@
     display: none;
   }
 }
+
+/* ==============================================================================
+   Phase 2: Tactical Forms, Timeline, Pagination & Notifications
+   ============================================================================== */
+
+/* Forms & Inputs */
+.rg-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.rg-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.rg-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.rg-form-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rg-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--rg-font-mono);
+}
+
+.rg-form-label .required {
+  color: var(--rg-red-light);
+  margin-left: 2px;
+}
+
+.rg-form-control {
+  background-color: var(--rg-bg-card);
+  border: 1px solid var(--rg-border-subtle);
+  border-radius: var(--rg-radius-sm);
+  color: var(--rg-text-primary);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--rg-font-sans);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rg-form-control:focus {
+  outline: none;
+  border-color: var(--rg-border-focus);
+  box-shadow: 0 0 0 2px rgba(91, 120, 99, 0.25);
+}
+
+.rg-form-control.error {
+  border-color: var(--rg-red-light);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.3);
+}
+
+textarea.rg-form-control {
+  min-height: 80px;
+  resize: vertical;
+}
+
+select.rg-form-control {
+  cursor: pointer;
+  background-color: var(--rg-bg-card);
+}
+
+.rg-form-hint {
+  font-size: 11px;
+  color: var(--rg-text-muted);
+}
+
+.rg-form-error {
+  font-size: 11px;
+  color: var(--rg-red-light);
+  font-family: var(--rg-font-mono);
+}
+
+/* Phase 2 Status & Severity Badges */
+.rg-pill-low {
+  background-color: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.35);
+}
+
+.rg-pill-medium {
+  background-color: rgba(217, 119, 6, 0.2);
+  color: var(--rg-amber-light);
+  border: 1px solid rgba(217, 119, 6, 0.4);
+}
+
+.rg-pill-high {
+  background-color: rgba(234, 88, 12, 0.25);
+  color: #fb923c;
+  border: 1px solid rgba(234, 88, 12, 0.45);
+}
+
+.rg-pill-reported {
+  background-color: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.rg-pill-under_assessment {
+  background-color: rgba(234, 179, 8, 0.2);
+  color: #fde047;
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.rg-pill-confirmed {
+  background-color: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.rg-pill-response_active {
+  background-color: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.rg-pill-contained {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.rg-pill-resolved {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.rg-pill-closed {
+  background-color: rgba(75, 85, 99, 0.3);
+  color: #9ca3af;
+  border: 1px solid rgba(75, 85, 99, 0.4);
+}
+
+.rg-pill-simulation {
+  background-color: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border: 1px dashed rgba(236, 72, 153, 0.4);
+}
+
+/* Pagination Bar */
+.rg-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background-color: var(--rg-bg-card);
+  border-top: 1px solid var(--rg-border-subtle);
+  font-size: 12px;
+  color: var(--rg-text-secondary);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rg-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rg-pagination-btn {
+  padding: 4px 10px;
+  background-color: var(--rg-bg-panel);
+  border: 1px solid var(--rg-border-subtle);
+  color: var(--rg-text-primary);
+  border-radius: var(--rg-radius-sm);
+  cursor: pointer;
+  font-family: var(--rg-font-mono);
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.rg-pagination-btn:hover:not(:disabled) {
+  border-color: var(--rg-border-strong);
+  background-color: var(--rg-bg-hover);
+}
+
+.rg-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rg-pagination-info {
+  font-family: var(--rg-font-mono);
+  font-size: 11px;
+  color: var(--rg-text-muted);
+}
+
+/* Timeline Components */
+.rg-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 20px;
+  margin: 14px 0;
+}
+
+.rg-timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background-color: var(--rg-border-subtle);
+}
+
+.rg-timeline-item {
+  position: relative;
+  padding-bottom: 18px;
+}
+
+.rg-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.rg-timeline-dot {
+  position: absolute;
+  left: -20px;
+  top: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--rg-bg-root);
+  border: 2px solid var(--rg-olive-light);
+}
+
+.rg-timeline-dot.critical {
+  border-color: var(--rg-red-light);
+}
+
+.rg-timeline-dot.transition {
+  border-color: var(--rg-blue-subtle);
+}
+
+.rg-timeline-content {
+  background-color: var(--rg-bg-card);
+  border: 1px solid var(--rg-border-subtle);
+  border-radius: var(--rg-radius-sm);
+  padding: 10px 14px;
+}
+
+.rg-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.rg-timeline-actor {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--rg-text-primary);
+}
+
+.rg-timeline-time {
+  font-size: 11px;
+  font-family: var(--rg-font-mono);
+  color: var(--rg-text-muted);
+}
+
+.rg-timeline-message {
+  font-size: 12px;
+  color: var(--rg-text-secondary);
+  line-height: 1.5;
+}
+
+/* Notification Toast */
+.rg-toast {
+  padding: 10px 14px;
+  border-radius: var(--rg-radius-sm);
+  font-size: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: rgModalSlide 0.2s ease-out;
+}
+
+.rg-toast-success {
+  background-color: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.rg-toast-error {
+  background-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: var(--rg-red-light);
+}

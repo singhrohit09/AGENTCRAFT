@@ -1,10 +1,10 @@
 """
 RakshaGrid Configuration & Environment Settings
 Defines strongly-typed, validated configuration variables for
-disaster intelligence operations, database connectivity, and telemetry.
+disaster intelligence operations, database connectivity, auth, and pagination.
 """
 
-from typing import Optional
+from typing import List, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,11 +21,11 @@ class RakshaGridSettings(BaseSettings):
     # Core Identifiers
     RAKSHAGRID_APP_NAME: str = "RakshaGrid"
     RAKSHAGRID_SUBTITLE: str = "Disaster Intelligence and Response"
-    RAKSHAGRID_VERSION: str = "1.0.0-phase1"
-    RAKSHAGRID_ENV: str = Field(default="development", description="Execution environment")
+    RAKSHAGRID_VERSION: str = "2.0.0-phase2"
+    RAKSHAGRID_ENV: str = Field(default="development", description="Execution environment: development | staging | production | test")
     RAKSHAGRID_DEMO_MODE: bool = Field(
         default=True,
-        description="Whether fictional emergency demo data is served for Phase 1 verification.",
+        description="Whether fictional emergency demo data and seeding are available for development/testing.",
     )
 
     # Operational Parameters
@@ -38,6 +38,24 @@ class RakshaGridSettings(BaseSettings):
     RAKSHAGRID_ALERT_THRESHOLD: str = Field(
         default="MODERATE",
         description="Minimum severity threshold for auto-escalating broadcast alerts.",
+    )
+
+    # Pagination Parameters
+    PAGINATION_DEFAULT_PAGE_SIZE: int = Field(default=20, ge=1, le=100)
+    PAGINATION_MAX_PAGE_SIZE: int = Field(default=100, ge=1, le=500)
+
+    # Security & Authorization
+    RAKSHAGRID_AUTH_SECRET: str = Field(
+        default="rakshagrid-dev-key-change-in-production-2026",
+        description="Signing secret for operational tokens in production.",
+    )
+    RAKSHAGRID_API_KEYS: str = Field(
+        default="",
+        description="Comma-delimited pre-shared operator/admin API keys.",
+    )
+    ALLOW_DEV_AUTH: bool = Field(
+        default=True,
+        description="Permit development headers (X-Operator-Id/Role) in development or test environments only.",
     )
 
     # PostgreSQL Database Credentials
@@ -68,7 +86,7 @@ class RakshaGridSettings(BaseSettings):
     @field_validator("RAKSHAGRID_ALERT_THRESHOLD")
     @classmethod
     def validate_threshold(cls, v: str) -> str:
-        allowed = {"MINOR", "MODERATE", "SEVERE", "CRITICAL", "EXTREME"}
+        allowed = {"MINOR", "MODERATE", "SEVERE", "CRITICAL", "EXTREME", "LOW", "MEDIUM", "HIGH"}
         normalized = v.upper().strip()
         if normalized not in allowed:
             raise ValueError(f"RAKSHAGRID_ALERT_THRESHOLD must be one of {allowed}, got: {v}")
@@ -76,8 +94,11 @@ class RakshaGridSettings(BaseSettings):
 
     @property
     def effective_database_url(self) -> str:
-        """Returns the PostgreSQL connection URL formatted for psycopg3/SQLAlchemy."""
+        """Returns the active database connection URL."""
         if self.DATABASE_URL:
+            # If sqlite or explicit scheme, return directly
+            if self.DATABASE_URL.startswith("sqlite") or "://" in self.DATABASE_URL:
+                return self.DATABASE_URL
             return self.DATABASE_URL
         # Using psycopg driver format for PostgreSQL
         auth = f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@" if self.POSTGRES_PASSWORD else f"{self.POSTGRES_USER}@"
@@ -87,6 +108,16 @@ class RakshaGridSettings(BaseSettings):
     def is_database_configured(self) -> bool:
         """Indicates whether non-default credentials or explicit DATABASE_URL are set."""
         return bool(self.DATABASE_URL or self.POSTGRES_PASSWORD)
+
+    @property
+    def is_production(self) -> bool:
+        return self.RAKSHAGRID_ENV == "production"
+
+    @property
+    def valid_api_keys(self) -> List[str]:
+        if not self.RAKSHAGRID_API_KEYS:
+            return []
+        return [k.strip() for k in self.RAKSHAGRID_API_KEYS.split(",") if k.strip()]
 
 
 # Global singleton instance

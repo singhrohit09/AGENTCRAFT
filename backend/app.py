@@ -22,11 +22,12 @@ if str(REPO_ROOT) not in sys.path:
 load_dotenv(dotenv_path=REPO_ROOT / ".env")
 
 from backend.routes.agent_routes import router as agent_router
+from backend.routes.rakshagrid_routes import router as rakshagrid_router
 from backend.services.agent_service import agent_service
 
 app = FastAPI(
-    title="AgentCraft API",
-    description="Backend API for AgentCraft — Autonomous AI Agent for AGENTCRAFT 2026 National AI Agent Challenge",
+    title="AgentCraft & RakshaGrid API",
+    description="Unified API for AgentCraft AI Engine and RakshaGrid Disaster Intelligence & Response Platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -45,6 +46,7 @@ from fastapi.staticfiles import StaticFiles
 
 # Register route modules
 app.include_router(agent_router)
+app.include_router(rakshagrid_router)
 
 APP_START_TIME = time.time()
 
@@ -56,14 +58,17 @@ if FRONTEND_DIST.exists():
 
 @app.get("/", tags=["Root"])
 def root_status():
-    """AgentCraft API Root Information."""
+    """AgentCraft & RakshaGrid API Root Information."""
     return {
         "project": "AgentCraft",
+        "subsystem": "RakshaGrid",
         "competition": "AGENTCRAFT 2026 National AI Agent Challenge",
         "status": "online",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/api/health",
+        "agentcraft_health": "/api/health",
+        "rakshagrid_health": "/api/rakshagrid/health",
+        "rakshagrid_overview": "/api/rakshagrid/overview",
     }
 
 

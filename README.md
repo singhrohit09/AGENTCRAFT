@@ -1,14 +1,14 @@
-# AgentCraft ⚡
+# AgentCraft ⚡ & RakshaGrid 🛡️
 
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6.0+-646CFF.svg)](https://vitejs.dev/)
-[![Test Suite](https://img.shields.io/badge/Tests-42%20Passed-10b981.svg)]()
+[![Vite](https://img.shields.io/badge/Vite-8.0+-646CFF.svg)](https://vitejs.dev/)
+[![Test Suite](https://img.shields.io/badge/Tests-53%20Passed-10b981.svg)]()
 [![Benchmark Verdict](https://img.shields.io/badge/Benchmark-CERTIFIED%20(100%25)-00f0ff.svg)]()
 [![Challenge](https://img.shields.io/badge/Challenge-AGENTCRAFT%202026-a855f7.svg)]()
 
-> **AgentCraft** is an autonomous AI agent engineering platform developed for the **AGENTCRAFT 2026 National AI Agent Challenge**. It features goal decomposition, verifiable tool calling, deterministic state isolation, assertion verification gates, and self-healing error recovery.
+> **AgentCraft** is an autonomous AI agent engineering platform developed for the **AGENTCRAFT 2026 National AI Agent Challenge**, powering **RakshaGrid** — an emergency operations and disaster intelligence platform for hazard monitoring, CAP alerting, and rescue coordination. See [docs/RAKSHAGRID.md](docs/RAKSHAGRID.md) for full subsystem documentation.
 
 ---
 
@@ -53,19 +53,30 @@ AgentCraft/
 │       └── test_verification.py         # Schema, threshold, and regex assertion tests
 ├── backend/
 │   ├── README.md                        # Backend service documentation
-│   ├── requirements.txt                 # FastAPI, Pydantic v2, HTTPX, Pytest
+│   ├── requirements.txt                 # FastAPI, Pydantic v2, SQLAlchemy, Alembic, psycopg
 │   ├── app.py                           # FastAPI application entrypoint & static mount
+│   ├── database/                        # Database sessions, connection pools & migrations
+│   │   ├── session.py                   # Engine, session factory & connection test
+│   │   └── migrations/                  # Alembic versions & 0001_initial_rakshagrid_schema
+│   ├── rakshagrid/                      # RakshaGrid disaster intelligence subsystem
+│   │   ├── config.py                    # Settings & environment validation
+│   │   ├── models.py                    # 11 PostgreSQL SQLAlchemy ORM models
+│   │   ├── schemas.py                   # Pydantic v2 request/response schemas
+│   │   └── service.py                   # Diagnostic checks & disaster telemetry
 │   ├── routes/
 │   │   ├── __init__.py                  # Route exports
-│   │   └── agent_routes.py              # REST API endpoints
+│   │   ├── agent_routes.py              # AgentCraft agent REST API
+│   │   └── rakshagrid_routes.py         # RakshaGrid disaster operations API
 │   ├── services/
 │   │   ├── __init__.py                  # Service exports
 │   │   ├── agent_service.py             # Session lifecycle & execution service
 │   │   └── benchmark_service.py         # AGENTCRAFT 2026 benchmark test suite
 │   └── tests/
 │       ├── test_api.py                  # API happy-path & workflow tests
-│       └── test_failures.py             # 404s, invalid payloads, and validation errors
+│       ├── test_failures.py             # 404s, invalid payloads, and validation errors
+│       └── test_rakshagrid_api.py       # RakshaGrid API & database models tests
 ├── docs/
+│   ├── RAKSHAGRID.md                    # RakshaGrid disaster platform architecture & setup
 │   ├── ARCHITECTURE.md                  # Detailed system architecture & Mermaid diagrams
 │   ├── AGENT_DESIGN.md                  # Cognitive model, state machine, and self-healing
 │   ├── API.md                           # REST API reference and cURL examples

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import RakshaGridShell from './components/rakshagrid/RakshaGridShell';
 
 const PRESET_GOALS = [
   {
@@ -16,6 +17,7 @@ const PRESET_GOALS = [
 ];
 
 export default function App() {
+  const [platformMode, setPlatformMode] = useState('rakshagrid'); // 'rakshagrid' | 'agentcraft'
   const [goal, setGoal] = useState(PRESET_GOALS[0].goal);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState('terminal'); // 'terminal' | 'trace' | 'memory' | 'benchmark' | 'tools'
@@ -25,7 +27,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [executionTrace, setExecutionTrace] = useState([]);
   const [artifacts, setArtifacts] = useState([]);
-  const [memory, setMemory] = useState({});
+  const [_memory, setMemory] = useState({});
   const [metrics, setMetrics] = useState({
     total_steps: 0,
     completed_steps: 0,
@@ -42,20 +44,7 @@ export default function App() {
 
   const terminalRef = useRef(null);
 
-  // Poll backend health on startup and fetch tools
-  useEffect(() => {
-    fetchHealth();
-    fetchTools();
-  }, []);
-
-  // Auto-scroll terminal
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [logs]);
-
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch('/api/health');
       if (res.ok) {
@@ -65,9 +54,9 @@ export default function App() {
     } catch {
       setSystemHealth({ status: 'offline', message: 'Backend unreachable on port 8000' });
     }
-  };
+  }, []);
 
-  const fetchTools = async () => {
+  const fetchTools = useCallback(async () => {
     try {
       const res = await fetch('/api/agent/tools');
       if (res.ok) {
@@ -77,7 +66,20 @@ export default function App() {
     } catch (e) {
       console.error('Failed to fetch tools:', e);
     }
-  };
+  }, []);
+
+  // Poll backend health on startup and fetch tools
+  useEffect(() => {
+    fetchHealth();
+    fetchTools();
+  }, [fetchHealth, fetchTools]);
+
+  // Auto-scroll terminal
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   const handleRunAutonomous = async () => {
     if (!goal.trim() || isRunning) return;
@@ -218,6 +220,15 @@ export default function App() {
     });
   };
 
+  if (platformMode === 'rakshagrid') {
+    return (
+      <RakshaGridShell
+        activePlatformMode={platformMode}
+        setActivePlatformMode={setPlatformMode}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -231,6 +242,17 @@ export default function App() {
         </div>
 
         <div className="header-status-group">
+          <button
+            className="btn-secondary"
+            onClick={() => setPlatformMode('rakshagrid')}
+            style={{
+              borderColor: 'var(--color-emerald)',
+              color: 'var(--color-emerald)',
+              fontWeight: 600,
+            }}
+          >
+            ← Switch to RakshaGrid
+          </button>
           <div className="status-pill">
             <span className="pulse-dot"></span>
             <span>{systemHealth?.status === 'healthy' ? 'Agent Engine Online' : 'Connecting Engine...'}</span>

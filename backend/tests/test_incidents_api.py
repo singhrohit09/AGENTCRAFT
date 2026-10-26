@@ -15,34 +15,8 @@ from backend.app import app
 from backend.database.session import Base, get_db
 from backend.rakshagrid.auth import UserRole
 from backend.rakshagrid.models import Incident, IncidentUpdate
+from backend.tests.conftest import test_engine, TestingSessionLocal
 
-# Create an in-memory SQLite database specifically for test isolation
-TEST_DATABASE_URL = "sqlite:///:memory:"
-test_engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
-
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    """Builds clean schema before each test and tears it down afterwards."""
-    Base.metadata.create_all(bind=test_engine)
-    yield
-    Base.metadata.drop_all(bind=test_engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
@@ -341,3 +315,61 @@ def test_deterministic_dev_seeder():
     assert sim_incidents.json()["total"] == 5
     for item in sim_incidents.json()["items"]:
         assert item["source_type"] == "simulation"
+
+
+# ------------------------------------------------------------------------------
+# 7. Regression & Validation Hardening Tests
+# ------------------------------------------------------------------------------
+
+def test_situation_update_with_update_message_alias():
+    """Verify that situation updates accepting 'update_message' payload succeed and return update_message."""
+    create_res = client.post("/api/v1/incidents", json={"title": "Sitrep Alias Incident"})
+    inc_id = create_res.json()["id"]
+
+    res = client.post(
+        f"/api/v1/incidents/{inc_id}/updates",
+        json={"update_message": "Evacuation corridor cleared by SDRF unit.", "update_type": "situation_report"},
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["message"] == "Evacuation corridor cleared by SDRF unit."
+    assert data["update_message"] == "Evacuation corridor cleared by SDRF unit."
+
+
+def test_admin_deletion_with_rakshagrid_dev_headers():
+    """Verify that X-Rakshagrid-Dev-Role and X-Rakshagrid-Dev-User authorize admin incident archival."""
+    create_res = client.post("/api/v1/incidents", json={"title": "Header Auth Test"})
+    inc_id = create_res.json()["id"]
+
+    headers = {
+        "X-Rakshagrid-Dev-Role": "admin",
+        "X-Rakshagrid-Dev-User": "admin-chief-01",
+    }
+    del_res = client.delete(f"/api/v1/incidents/{inc_id}", headers=headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "closed"
+
+
+def test_permanent_deletion_removes_record():
+    """Verify permanent deletion removes record from database completely."""
+    create_res = client.post("/api/v1/incidents", json={"title": "Temporary Test Incident"})
+    inc_id = create_res.json()["id"]
+
+    headers = {"X-Operator-Id": "admin-super", "X-Operator-Role": "admin"}
+    del_res = client.delete(f"/api/v1/incidents/{inc_id}?permanent=true", headers=headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["action"] == "deleted"
+
+    # Confirm it is 404 now
+    get_res = client.get(f"/api/v1/incidents/{inc_id}")
+    assert get_res.status_code == 404
+
+
+def test_empty_or_whitespace_title_rejected():
+    """Empty string or whitespace-only title must be rejected with 422."""
+    res1 = client.post("/api/v1/incidents", json={"title": ""})
+    assert res1.status_code == 422
+
+    res2 = client.post("/api/v1/incidents", json={"title": "   "})
+    assert res2.status_code == 422
+

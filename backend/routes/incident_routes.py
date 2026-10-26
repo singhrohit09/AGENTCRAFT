@@ -164,6 +164,7 @@ def get_incident_updates(
             "new_status": u.new_status,
             "update_type": u.update_type,
             "message": u.message,
+            "update_message": u.message,
             "metadata_payload": u.parsed_metadata,
             "created_at": u.created_at,
         })

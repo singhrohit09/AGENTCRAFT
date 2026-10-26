@@ -145,7 +145,7 @@ export default function RakshaIncidents() {
       }
       const data = await res.json();
       setIncidents(data.items || []);
-      setTotalCount(data.total_count || 0);
+      setTotalCount(data.total != null ? data.total : (data.total_count || 0));
       setTotalPages(data.total_pages || 1);
     } catch (e) {
       console.error('Failed to query incidents from PostgreSQL backend:', e);
@@ -166,7 +166,7 @@ export default function RakshaIncidents() {
       const res = await fetch(`/api/v1/incidents/${incidentId}/updates`);
       if (res.ok) {
         const data = await res.json();
-        setTimelineUpdates(data || []);
+        setTimelineUpdates(Array.isArray(data) ? data : (data.items || []));
       }
     } catch (e) {
       console.error('Failed to fetch timeline:', e);
@@ -203,6 +203,7 @@ export default function RakshaIncidents() {
         method: 'POST',
         headers: DEFAULT_DEV_HEADERS,
         body: JSON.stringify({
+          message: sitrepText.trim(),
           update_message: sitrepText.trim(),
           update_type: sitrepType,
           metadata_payload: { client: 'RakshaGrid-Web', logged_via: 'tactical_console' },
@@ -801,7 +802,7 @@ export default function RakshaIncidents() {
                               {new Date(item.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                             </span>
                           </div>
-                          <div className="rg-timeline-message">{item.update_message}</div>
+                          <div className="rg-timeline-message">{item.message || item.update_message}</div>
                         </div>
                       </div>
                     ))}

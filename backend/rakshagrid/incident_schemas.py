@@ -7,7 +7,7 @@ enumerated classifications, and structured response representations.
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class IncidentCategory(str, Enum):
@@ -37,7 +37,7 @@ class IncidentCategory(str, Enum):
         for member in cls:
             if member.value == cleaned:
                 return member
-        return cls.OTHER
+        raise ValueError(f"Invalid category '{value}'. Allowed: {[m.value for m in cls]}")
 
 
 class IncidentSeverity(str, Enum):
@@ -128,6 +128,14 @@ class IncidentCreate(BaseModel):
     assigned_commander: Optional[str] = Field(None, max_length=100)
     affected_population: Optional[int] = Field(default=0, ge=0, description="Estimated population count (>= 0)")
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        trimmed = v.strip()
+        if len(trimmed) < 3:
+            raise ValueError("Incident title must contain at least 3 non-whitespace characters")
+        return trimmed
+
     @field_validator("category", mode="before")
     @classmethod
     def parse_category(cls, v: Any) -> Any:
@@ -165,6 +173,16 @@ class IncidentUpdatePatch(BaseModel):
     assigned_commander: Optional[str] = Field(None, max_length=100)
     affected_population: Optional[int] = Field(None, ge=0)
     change_reason: Optional[str] = Field(None, max_length=500, description="Required justification note when closing or escalating")
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            trimmed = v.strip()
+            if len(trimmed) < 3:
+                raise ValueError("Incident title must contain at least 3 non-whitespace characters")
+            return trimmed
+        return v
 
     @field_validator("category", mode="before")
     @classmethod
@@ -234,6 +252,14 @@ class IncidentUpdateCreate(BaseModel):
     new_status: Optional[IncidentStatus] = None
     metadata_payload: Optional[Dict[str, Any]] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_message_field(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "message" not in data and "update_message" in data:
+                data["message"] = data["update_message"]
+        return data
+
     @field_validator("new_status", mode="before")
     @classmethod
     def parse_new_status(cls, v: Any) -> Any:
@@ -251,10 +277,17 @@ class IncidentUpdateResponse(BaseModel):
     new_status: Optional[str] = None
     update_type: str
     message: str
+    update_message: Optional[str] = None
     metadata_payload: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def populate_update_message(self) -> "IncidentUpdateResponse":
+        if not self.update_message:
+            self.update_message = self.message
+        return self
 
     @field_validator("id", "incident_id", mode="before")
     @classmethod

@@ -68,12 +68,22 @@ def get_current_user(
 
     # 3. Development / Test Mode Authorization Headers
     if not rakshagrid_settings.is_production and rakshagrid_settings.ALLOW_DEV_AUTH:
-        if x_operator_id:
-            role = (x_operator_role or UserRole.OPERATOR).lower().strip()
+        dev_user = (
+            x_operator_id
+            or request.headers.get("x-rakshagrid-dev-user")
+            or request.headers.get("x-operator-id")
+        )
+        dev_role = (
+            x_operator_role
+            or request.headers.get("x-rakshagrid-dev-role")
+            or request.headers.get("x-operator-role")
+        )
+        if dev_user or dev_role:
+            role = (dev_role or UserRole.OPERATOR).lower().strip()
             if role not in UserRole.ALL_ROLES:
                 role = UserRole.OPERATOR
             return UserIdentity(
-                user_id=x_operator_id.strip(),
+                user_id=(dev_user or "dev-operator").strip(),
                 role=role,
                 is_authenticated=True,
                 auth_mechanism="dev_header",

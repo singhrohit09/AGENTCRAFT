@@ -138,7 +138,10 @@ def check_db_connectivity() -> Dict[str, Any]:
         result["status"] = "connected"
         result["connection"] = True
         result["latency_ms"] = latency
-        result["detail"] = f"Successfully connected to PostgreSQL at {host}:{port}/{database}"
+        if engine.dialect.name == "sqlite":
+            result["detail"] = f"Successfully connected to SQLite database ({engine.url.database or 'local'})"
+        else:
+            result["detail"] = f"Successfully connected to PostgreSQL at {host}:{port}/{database}"
     except Exception as e:
         err_msg = str(e)
         if "could not connect to server" in err_msg or "Connection refused" in err_msg or "timeout" in err_msg.lower():

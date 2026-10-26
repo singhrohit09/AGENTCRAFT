@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     reported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_incident_severity CHECK (severity IN ('critical', 'severe', 'moderate', 'minor')),
-    CONSTRAINT ck_incident_status CHECK (status IN ('active', 'contained', 'assessing', 'closed'))
+    CONSTRAINT ck_incident_severity CHECK (severity IN ('low', 'medium', 'high', 'critical', 'severe', 'moderate', 'minor')),
+    CONSTRAINT ck_incident_status CHECK (status IN ('reported', 'under_assessment', 'confirmed', 'response_active', 'contained', 'resolved', 'closed', 'active', 'assessing'))
 );
 
 CREATE INDEX IF NOT EXISTS ix_incidents_incident_code ON incidents (incident_code);
@@ -61,8 +61,8 @@ CREATE INDEX IF NOT EXISTS ix_shelters_status ON shelters (status);
 CREATE TABLE IF NOT EXISTS incident_updates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     incident_id UUID NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
-    author_name VARCHAR(100) NOT NULL,
-    author_role VARCHAR(100) NOT NULL,
+    author_name VARCHAR(100) DEFAULT 'system',
+    author_role VARCHAR(100) DEFAULT 'operator',
     update_type VARCHAR(50) NOT NULL,
     message TEXT NOT NULL,
     verified BOOLEAN NOT NULL DEFAULT TRUE,

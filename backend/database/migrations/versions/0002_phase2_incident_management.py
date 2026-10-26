@@ -26,6 +26,11 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("created_by", sa.String(length=100), nullable=False, server_default="system"))
         batch_op.add_column(sa.Column("assigned_commander", sa.String(length=100), nullable=True))
         batch_op.add_column(sa.Column("affected_population", sa.Integer(), nullable=True, server_default="0"))
+        batch_op.alter_column("disaster_type", nullable=True)
+        batch_op.alter_column("location_name", nullable=True)
+        batch_op.alter_column("affected_region", nullable=True)
+        batch_op.alter_column("latitude", nullable=True)
+        batch_op.alter_column("longitude", nullable=True)
 
         # Create indexes
         batch_op.create_index("ix_incidents_category", ["category"])
@@ -38,6 +43,8 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("previous_status", sa.String(length=30), nullable=True))
         batch_op.add_column(sa.Column("new_status", sa.String(length=30), nullable=True))
         batch_op.add_column(sa.Column("metadata_payload", sa.Text(), nullable=True))
+        batch_op.alter_column("author_name", nullable=True)
+        batch_op.alter_column("author_role", nullable=True)
 
         batch_op.create_index("ix_incident_updates_actor_id", ["actor_id"])
         batch_op.create_index("ix_incident_updates_update_type", ["update_type"])

@@ -134,6 +134,10 @@ class Incident(Base):
     def affected_region(self) -> str:
         return self.location_description or "Regional Operations"
 
+    @affected_region.setter
+    def affected_region(self, value: str):
+        pass
+
     @property
     def affected_population_estimate(self) -> int:
         return self.affected_population or 0
@@ -145,6 +149,10 @@ class Incident(Base):
     @property
     def casualty_count_estimate(self) -> int:
         return 0
+
+    @casualty_count_estimate.setter
+    def casualty_count_estimate(self, value: int):
+        pass
 
 
 class IncidentUpdate(Base):
@@ -238,18 +246,53 @@ class ResponseTeam(Base):
     personnel_count = Column(Integer, nullable=False, default=1)
     commander_name = Column(String(100), nullable=False)
     contact_channel = Column(String(100), nullable=False)
-    current_status = Column(String(30), nullable=False, default="standby", index=True)
+    current_status = Column(String(30), nullable=False, default="available", index=True)
     
     current_latitude = Column(Float, nullable=True)
     current_longitude = Column(Float, nullable=True)
     base_location = Column(String(255), nullable=False)
     assigned_base_shelter_id = Column(Uuid, ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True)
+    assigned_incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     tasks = relationship("ResponseTask", back_populates="assigned_team")
     base_shelter = relationship("Shelter", foreign_keys=[assigned_base_shelter_id])
+    assigned_incident = relationship("Incident", foreign_keys=[assigned_incident_id])
+
+    # Backward compatibility and ergonomic aliases
+    @property
+    def name(self) -> str:
+        return self.team_callsign
+
+    @name.setter
+    def name(self, val: str):
+        self.team_callsign = val
+
+    @property
+    def status(self) -> str:
+        return self.current_status
+
+    @status.setter
+    def status(self, val: str):
+        self.current_status = val
+
+    @property
+    def specialization(self) -> str:
+        return self.unit_type
+
+    @specialization.setter
+    def specialization(self, val: str):
+        self.unit_type = val
+
+    @property
+    def member_count(self) -> int:
+        return self.personnel_count
+
+    @member_count.setter
+    def member_count(self, val: int):
+        self.personnel_count = val
 
 
 class ResponseTask(Base):
@@ -291,11 +334,11 @@ class Shelter(Base):
     capacity = Column(Integer, nullable=False)
     current_occupancy = Column(Integer, nullable=False, default=0)
     
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     address = Column(Text, nullable=False)
-    contact_person = Column(String(100), nullable=False)
-    contact_phone = Column(String(50), nullable=False)
+    contact_person = Column(String(100), nullable=False, default="Shelter Manager")
+    contact_phone = Column(String(50), nullable=False, default="N/A")
     
     supplies_status = Column(String(30), nullable=False, default="adequate")
     power_backup = Column(Boolean, default=True, nullable=False)
@@ -306,6 +349,18 @@ class Shelter(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     resources = relationship("Resource", back_populates="shelter")
+
+    @property
+    def remaining_capacity(self) -> int:
+        return max(0, (self.capacity or 0) - (self.current_occupancy or 0))
+
+    @property
+    def occupancy(self) -> int:
+        return self.current_occupancy or 0
+
+    @occupancy.setter
+    def occupancy(self, val: int):
+        self.current_occupancy = val
 
 
 class Resource(Base):
@@ -323,6 +378,8 @@ class Resource(Base):
     quantity_available = Column(Float, nullable=False, default=0.0)
     unit = Column(String(50), nullable=False)
     shelter_id = Column(Uuid, ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True, index=True)
+    storage_location = Column(String(255), nullable=True, default="Central Logistics Warehouse")
+    status = Column(String(30), nullable=False, default="in_stock", index=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
@@ -346,6 +403,12 @@ class ResourceMovement(Base):
     status = Column(String(30), nullable=False, default="dispatched", index=True)
     transport_mode = Column(String(50), nullable=False)
     
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
+    task_id = Column(Uuid, ForeignKey("response_tasks.id", ondelete="SET NULL"), nullable=True, index=True)
+    team_id = Column(Uuid, ForeignKey("response_teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    shelter_id = Column(Uuid, ForeignKey("shelters.id", ondelete="SET NULL"), nullable=True, index=True)
+    notes = Column(Text, nullable=True)
+
     dispatched_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     delivered_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)

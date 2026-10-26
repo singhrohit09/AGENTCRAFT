@@ -54,6 +54,11 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Local Databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Agent Workspace & Temp Logs
 temp_sandbox/
 agent_artifacts/

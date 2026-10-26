@@ -24,6 +24,7 @@ load_dotenv(dotenv_path=REPO_ROOT / ".env")
 from backend.routes.agent_routes import router as agent_router
 from backend.routes.rakshagrid_routes import router as rakshagrid_router
 from backend.routes.incident_routes import router as incident_router
+from backend.routes.coordination_routes import router as coordination_router
 from backend.services.agent_service import agent_service
 
 app = FastAPI(
@@ -49,6 +50,7 @@ from fastapi.staticfiles import StaticFiles
 app.include_router(agent_router)
 app.include_router(rakshagrid_router)
 app.include_router(incident_router)
+app.include_router(coordination_router)
 
 APP_START_TIME = time.time()
 
@@ -72,6 +74,10 @@ def root_status():
         "rakshagrid_health": "/api/rakshagrid/health",
         "rakshagrid_overview": "/api/rakshagrid/overview",
         "incidents_v1": "/api/v1/incidents",
+        "teams_v1": "/api/v1/teams",
+        "tasks_v1": "/api/v1/tasks",
+        "shelters_v1": "/api/v1/shelters",
+        "resources_v1": "/api/v1/resources",
     }
 
 

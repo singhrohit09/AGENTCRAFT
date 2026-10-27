@@ -11,14 +11,17 @@ from backend.services.risk_engine import DisasterRiskEngine, disaster_risk_engin
 
 
 def test_score_to_category_thresholds():
-    """Verify exact score mapping to documented risk categories."""
+    """Verify exact score mapping to documented risk categories: Low 0-24, Moderate 25-49, High 50-74, Critical 75-100."""
     assert DisasterRiskEngine.score_to_category(0.0) == "Low"
-    assert DisasterRiskEngine.score_to_category(25.0) == "Low"
-    assert DisasterRiskEngine.score_to_category(25.1) == "Moderate"
-    assert DisasterRiskEngine.score_to_category(50.0) == "Moderate"
-    assert DisasterRiskEngine.score_to_category(50.1) == "High"
-    assert DisasterRiskEngine.score_to_category(75.0) == "High"
-    assert DisasterRiskEngine.score_to_category(75.1) == "Critical"
+    assert DisasterRiskEngine.score_to_category(24.0) == "Low"
+    assert DisasterRiskEngine.score_to_category(24.9) == "Low"
+    assert DisasterRiskEngine.score_to_category(25.0) == "Moderate"
+    assert DisasterRiskEngine.score_to_category(49.0) == "Moderate"
+    assert DisasterRiskEngine.score_to_category(49.9) == "Moderate"
+    assert DisasterRiskEngine.score_to_category(50.0) == "High"
+    assert DisasterRiskEngine.score_to_category(74.0) == "High"
+    assert DisasterRiskEngine.score_to_category(74.9) == "High"
+    assert DisasterRiskEngine.score_to_category(75.0) == "Critical"
     assert DisasterRiskEngine.score_to_category(100.0) == "Critical"
 
 

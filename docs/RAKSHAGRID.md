@@ -209,12 +209,14 @@ alembic downgrade -1
 Migration revisions:
 - `0001_initial_rakshagrid_schema.py`: Initial 11-table schema models.
 - `0002_phase2_incident_management.py`: Enhanced incident and timeline fields, check constraints, and performance indexes.
+- `0003_phase3_coordination.py`: Response team and shelter operational coordination.
+- `0004_phase4_intelligence.py`: Disaster simulations, AI analysis records, alert deduplication and lifecycle, explainable risk metadata.
 
 ---
 
 ## 9. Verification & Test Suite
 
-All 69 automated tests pass cleanly without requiring external network access:
+All 126 automated tests pass cleanly without requiring external network access:
 
 ```bash
 .\.venv\Scripts\python.exe -m pytest ai/tests backend/tests -v
@@ -224,33 +226,29 @@ Test coverage includes:
 - AgentCraft core reasoning loop & tool sandboxes (28 tests)
 - AgentCraft API & verification endpoints (14 tests)
 - RakshaGrid subsystem diagnostics & health (11 tests)
-- RakshaGrid Phase 2 Incident Management API (16 tests):
-  - Incident creation and title validation
-  - Normalization of legacy categories/severities
-  - Coordinate bounds validation (lat [-90, 90], lon [-180, 180])
-  - Non-negative population check
-  - Invalid UUID format rejection (422)
-  - Missing incident rejection (404)
-  - Max page size enforcement (<= 100)
-  - Database persistence and transaction rollback on audit failure
-  - Valid and invalid status transitions
-  - Chronological timeline logging
-  - Search and multi-filter querying
-  - Role-based authorization & archival workflow
-  - Deterministic dev seeder idempotence
+- RakshaGrid Phase 2 Incident Management API (16 tests)
+- RakshaGrid Phase 3 Maps & Coordination APIs (10 tests)
+- RakshaGrid Phase 4 Intelligence, Risk Engine, Simulations, & Alerts (47 tests):
+  - External disaster data provider and TTL caching (5 tests)
+  - Explainable risk engine and boundary thresholds (4 tests)
+  - AI disaster response agent, fallback, prompt injection, and human approval (4 tests)
+  - Disaster scenario simulation models and zero live mutation (7 tests)
+  - Intelligent alert rules, suppression cooldown, and lifecycle (3 tests)
+  - Phase 4 tool unit tests & BaseTool contracts (8 tests)
+  - End-to-end REST API integration tests (16 tests)
 
 Frontend build verification:
 ```bash
 cd frontend
 npm run lint    # 0 errors
-npm run build   # Production bundle built in 215ms
+npm run build   # Production bundle built in ~1.6s
 ```
 
 ---
 
 ## 10. Phase Roadmap
 
-### Completed in Phase 1
+### Completed in Phase 1 — Foundation
 - [x] Application shell, responsive sidebar, and tactical navigation for all 11 modules.
 - [x] Dark charcoal, warm off-white, muted olive, and restrained amber/red design system.
 - [x] Overview dashboard with threat level, KPI cards, incident tables, and alert streams.
@@ -258,7 +256,7 @@ npm run build   # Production bundle built in 215ms
 - [x] 11 SQLAlchemy models and Alembic migration foundation.
 - [x] 53 passing automated tests.
 
-### Completed in Phase 2
+### Completed in Phase 2 — Database and Incidents
 - [x] PostgreSQL database connection configuration & session lifecycle management.
 - [x] Persistent `incidents` and `incident_updates` tables with check constraints and indexes.
 - [x] Transactional consistency: creation and updates recorded in history atomically with rollback.
@@ -270,8 +268,30 @@ npm run build   # Production bundle built in 215ms
 - [x] Deterministic development seeder (`backend/scripts/seed_dev_data.py`).
 - [x] 69 passing automated tests.
 
-### Deferred to Phase 3
-- [ ] Leaflet / Mapbox GIS map integration with dark vector tile rendering and live incident markers.
-- [ ] CAP v1.2 alert broadcast engine with multi-channel dispatch simulation.
-- [ ] Tactical response team mobilization and resource tracking.
-- [ ] Relief shelter occupancy management and check-in barcode workflows.
+### Completed in Phase 3 — Maps and Coordination
+- [x] Leaflet GIS live map with custom hazard markers, cluster overlays, and sector boundaries.
+- [x] Response team mobilization, operational status transitions, and incident assignments.
+- [x] Tactical task management with status lifecycles (`pending` -> `in_progress` -> `completed`).
+- [x] Relief shelter tracking with capacity enforcement and occupancy safeguards.
+- [x] Emergency stockpile inventory management with allocation, return, and low-stock indicators.
+- [x] 85 passing automated tests.
+
+### Completed in Phase 4 — Intelligence
+- [x] External disaster data integration layer with Open-Meteo weather and river discharge APIs.
+- [x] In-memory caching (15-minute TTL) and data freshness tracking (`freshness_seconds`, `is_stale`).
+- [x] Deterministic 0–100 explainable risk engine with transparent factor contributions and data gap penalties.
+- [x] Standardized risk category thresholds: Low (0–24), Moderate (25–49), High (50–74), Critical (75–100).
+- [x] 8 validated disaster tools subclassing `BaseTool` in `ai/tools/disaster_tools.py`.
+- [x] AI Disaster Intelligence Agent with prompt-injection sanitization and multi-provider hybrid support.
+- [x] Mandatory human-in-the-loop approval decision gate for consequential tactical plans.
+- [x] State-isolated scenario simulation engine with 6 multi-hazard stress models and zero live database mutations.
+- [x] Rule-driven intelligent alerts with SHA256 deduplication and 15-minute cooldown suppression.
+- [x] Complete alert lifecycle: active -> acknowledged -> resolved with operator audit tracking.
+- [x] Frontend 4-tab Intelligence Mission Control and enhanced Alerts Manager.
+- [x] 126 passing automated tests and CERTIFIED 100% benchmark score.
+
+### Deferred to Phase 5 — Finalization
+- [ ] Production multi-container Docker compose and orchestration manifests.
+- [ ] Live WebSocket broadcast streaming for multi-operator sync.
+- [ ] Automated end-to-end disaster drill scenarios.
+

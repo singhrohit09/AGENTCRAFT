@@ -271,3 +271,108 @@ curl -X POST http://127.0.0.1:8000/api/agent/run \
 # Run Benchmark
 curl -X POST http://127.0.0.1:8000/api/agent/benchmark
 ```
+
+---
+
+## 7. Phase 4 Disaster Intelligence Endpoints
+
+### 7.1 Meteorological & River Discharge Telemetry
+- **Method**: `GET`
+- **Path**: `/api/v1/intelligence/external-data/weather?latitude=26.18&longitude=91.74`
+- **Response**: Weather conditions, temperature, precipitation, wind speed, river discharge, and data freshness metrics.
+
+### 7.2 External Data Provider Health
+- **Method**: `GET`
+- **Path**: `/api/v1/intelligence/external-data/health`
+- **Response**: Primary provider status, network mode, cache TTL, and cached entries count.
+
+### 7.3 Calculate Explainable Risk Assessment
+- **Method**: `POST`
+- **Path**: `/api/v1/intelligence/risk/assess`
+- **Request Body**:
+```json
+{
+  "incident_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "persist": true
+}
+```
+- **Response (200 OK)**:
+```json
+{
+  "incident_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "calculated_risk_score": 68.5,
+  "risk_level": "High",
+  "confidence_score": 0.85,
+  "factor_breakdown": [ ... ],
+  "recommended_interventions": [ ... ],
+  "data_sources": [ ... ]
+}
+```
+
+### 7.4 AI Disaster Situation Analysis
+- **Method**: `POST`
+- **Path**: `/api/v1/intelligence/agent/analyze`
+- **Request Body**:
+```json
+{
+  "incident_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "query": "Assess priority rescue staging and identify resource bottlenecks"
+}
+```
+- **Response**: Traceable situation summary, priority incident list, shortage analysis, recommended response plan, and pending decision gate.
+
+### 7.5 Human Approval Decision Gate for Response Plan
+- **Method**: `POST`
+- **Path**: `/api/v1/intelligence/agent/plan/approve`
+- **Headers**: `X-RakshaGrid-User-ID: commander-01`, `X-RakshaGrid-User-Role: commander`
+- **Request Body**:
+```json
+{
+  "analysis_id": "ai-analysis-uuid",
+  "approve": true,
+  "notes": "Approved for tactical staging"
+}
+```
+
+### 7.6 Run Disaster Scenario Simulation
+- **Method**: `POST`
+- **Path**: `/api/v1/intelligence/simulations/run`
+- **Request Body**:
+```json
+{
+  "scenario_type": "heavy_rainfall",
+  "scenario_name": "Monsoon Inundation Surge",
+  "parameters": {
+    "additional_rainfall_mm": 55.0,
+    "river_rise_cm": 120.0
+  }
+}
+```
+- **Response**: State-isolated simulation results with baseline comparison, delta metrics, capacity bottlenecks, and zero database mutations.
+
+---
+
+## 8. Phase 4 Intelligent Alerts Endpoints
+
+### 8.1 Evaluate Automated Alert Rules
+- **Method**: `POST`
+- **Path**: `/api/v1/alerts/evaluate`
+- **Response**: Number of rules evaluated, new alerts created, and alerts suppressed by 15-minute cooldown deduplication.
+
+### 8.2 List & Filter Alerts
+- **Method**: `GET`
+- **Path**: `/api/v1/alerts?status=active&severity=critical&limit=50`
+- **Response**: List of alert records with incident links, trigger reasons, dedup keys, and timestamps.
+
+### 8.3 Acknowledge Alert
+- **Method**: `POST`
+- **Path**: `/api/v1/alerts/{alert_id}/acknowledge`
+- **Headers**: `X-RakshaGrid-User-ID: operator-01`
+- **Request Body**: `{"notes": "Dispatch unit alerted"}`
+
+### 8.4 Resolve Alert
+- **Method**: `POST`
+- **Path**: `/api/v1/alerts/{alert_id}/resolve`
+- **Headers**: `X-RakshaGrid-User-ID: operator-01`
+- **Request Body**: `{"notes": "Water levels normalized"}`
+

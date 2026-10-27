@@ -4,11 +4,12 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.0+-646CFF.svg)](https://vitejs.dev/)
-[![Test Suite](https://img.shields.io/badge/Tests-69%20Passed-10b981.svg)]()
+[![Test Suite](https://img.shields.io/badge/Tests-126%20Passed-10b981.svg)]()
 [![Benchmark Verdict](https://img.shields.io/badge/Benchmark-CERTIFIED%20(100%25)-00f0ff.svg)]()
 [![Challenge](https://img.shields.io/badge/Challenge-AGENTCRAFT%202026-a855f7.svg)]()
 
-> **AgentCraft** is an autonomous AI agent engineering platform developed for the **AGENTCRAFT 2026 National AI Agent Challenge**, powering **RakshaGrid** — an emergency operations and disaster intelligence platform for hazard monitoring, CAP alerting, and rescue coordination. See [docs/RAKSHAGRID.md](docs/RAKSHAGRID.md) for full subsystem documentation.
+> **AgentCraft** is an autonomous AI agent engineering platform developed for the **AGENTCRAFT 2026 National AI Agent Challenge**, powering **RakshaGrid** — an emergency operations and disaster intelligence platform for hazard monitoring, explainable risk modeling, AI decision-support, CAP alerting, and rescue coordination. See [docs/RAKSHAGRID.md](docs/RAKSHAGRID.md) and [docs/PHASE4_INTELLIGENCE.md](docs/PHASE4_INTELLIGENCE.md) for full subsystem documentation.
+
 
 ---
 
@@ -168,10 +169,10 @@ python -m backend.app
 
 ## 🧪 Testing & Verification
 
-Run the test suite covering agent planning, tool operations, sandbox boundaries, API endpoints, and failure cases:
+Run the test suite covering agent planning, tool operations, sandbox boundaries, API endpoints, risk scoring, scenario simulations, alerts, and failure cases:
 
 ```bash
-# Run all 42 tests
+# Run all 126 tests
 .\.venv\Scripts\python.exe -m pytest ai/tests backend/tests -v
 ```
 
@@ -198,21 +199,31 @@ Expected Benchmark Output:
 
 ## 📊 Key Working Features
 
-1. **Mission Control Console**:
+1. **Mission Control & Incident Operations**:
    - Interactive goal input with 1-click preset templates.
    - Dual execution modes: Autonomous Run (instant end-to-end) or Step Mode (interactive step-by-step execution).
-2. **Live Multi-Step Plan Timeline**:
-   - Visual step sequence with tool tags, execution status, latency timing, and verification check badges.
-3. **Real-Time Terminal Streaming**:
-   - Live color-coded logs showing tool arguments, stdout/stderr, assertion proofs, and recovery events.
-4. **Audit Trace & Telemetry**:
-   - Deep inspection of every executed step, inputs, outputs, duration, and pass/fail assertion details.
-5. **Artifacts & Working Memory Store**:
-   - Live browsing of generated files (Markdown reports, JSON datasets) and working memory variables.
-6. **Integrated Capability Benchmark**:
+   - Real-time incident management with spatial tracking, chronological situation updates, and status lifecycles.
+2. **Phase 4: Explainable Disaster Risk Assessment**:
+   - Deterministic 0–100 scoring based on hazard category, severity, operational status, hydro-meteorological telemetry, and population exposure.
+   - Categorized into Low (0–24), Moderate (25–49), High (50–74), and Critical (75–100).
+   - Transparent factor breakdown and data gap penalty reporting.
+3. **Phase 4: AI Disaster Intelligence Agent & Tools**:
+   - 8 sandboxed tools subclassing `BaseTool` in `ai/tools/disaster_tools.py` (`get_incident_details`, `get_incident_risk`, `get_weather_observations`, `get_available_teams`, `get_active_tasks`, `get_shelter_capacity`, `get_resource_inventory`, `propose_response_plan`).
+   - Prompt-injection sanitization on untrusted inputs.
+   - Multi-provider hybrid support (OpenAI, Gemini, Anthropic, or internal cognitive fallback).
+   - Mandatory human approval decision gate for consequential tactical plans.
+4. **Phase 4: Disaster Scenario Simulations**:
+   - 6 hypothetical stress-test scenarios (heavy rainfall, multi-incident surge, team outage, shelter overflow, supply deficit, compound cascade).
+   - Guaranteed state isolation with zero persistent database mutations.
+5. **Phase 4: Intelligent Alerts & Notifications**:
+   - Rule-driven evaluation for high/critical hazard breaches, severe precipitation, shelter saturation, and resource deficits.
+   - Hash-based deduplication with 15-minute cooldown suppression.
+   - Full lifecycle management (`active` -> `acknowledged` -> `resolved`).
+6. **Phase 4: External Disaster Telemetry**:
+   - Live integration with Open-Meteo weather and river discharge flood forecasting.
+   - In-memory 15-minute TTL caching and data freshness monitoring.
+7. **Integrated Capability Benchmark**:
    - In-app evaluation suite that validates agent capabilities against AGENTCRAFT 2026 challenge standards.
-7. **Tool Schema Catalog**:
-   - Introspection of registered tools (`code_runner`, `file_manager`, `data_analyzer`, `web_fetcher`, `verifier`).
 
 ---
 
@@ -221,11 +232,14 @@ Expected Benchmark Output:
 - **Path Normalization**: Rejects and sanitizes path traversals attempting to escape `./temp_sandbox`.
 - **Restricted Execution**: Code execution runs within an isolated namespace with standard library mathematical modules, blocking OS-level corruption.
 - **Zero Hardcoded Secrets**: All credentials reside in `.env`. Safe defaults work out of the box with zero external API dependencies required.
+- **Human Decision Gates**: No consequential operations (team assignments, status changes, resource allocations) execute autonomously.
 
 ---
 
 ## 📖 Detailed Documentation
 
+- [Phase 4 Intelligence & Disaster Response](docs/PHASE4_INTELLIGENCE.md)
+- [RakshaGrid Subsystem Guide](docs/RAKSHAGRID.md)
 - [System Architecture](docs/ARCHITECTURE.md)
 - [Agent Cognitive Design](docs/AGENT_DESIGN.md)
 - [REST API Specification](docs/API.md)
@@ -234,6 +248,7 @@ Expected Benchmark Output:
 - [Agent Repository Guidelines](AGENTS.md)
 - [Skills Configuration Guide](SKILLS_SETUP.md)
 - [Development Workflow Runbook](workflow.md)
+
 
 ---
 

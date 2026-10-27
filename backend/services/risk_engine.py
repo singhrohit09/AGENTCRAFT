@@ -64,16 +64,16 @@ class DisasterRiskEngine:
     def score_to_category(cls, score: float) -> str:
         """
         Maps 0-100 score to documented risk category:
-        0.0 - 25.0: Low
-        25.1 - 50.0: Moderate
-        50.1 - 75.0: High
-        75.1 - 100.0: Critical
+        0.0 - 24.99: Low (0–24)
+        25.0 - 49.99: Moderate (25–49)
+        50.0 - 74.99: High (50–74)
+        75.0 - 100.0: Critical (75–100)
         """
-        if score <= 25.0:
+        if score < 25.0:
             return "Low"
-        elif score <= 50.0:
+        elif score < 50.0:
             return "Moderate"
-        elif score <= 75.0:
+        elif score < 75.0:
             return "High"
         else:
             return "Critical"

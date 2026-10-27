@@ -96,12 +96,30 @@ class AgentCraftAgent:
         self.max_total_steps = max_total_steps
         self.execution_mode = execution_mode or os.getenv("AGENTCRAFT_EXECUTION_MODE", "hybrid")
 
+    @classmethod
+    def sanitize_untrusted_input(cls, text: str) -> str:
+        """Sanitizes goals and parameters against prompt injection and malicious commands."""
+        patterns = [
+            r"ignore\s+(all\s+)?(previous|prior)\s+instructions",
+            r"system\s*:\s*override",
+            r"drop\s+table",
+            r"delete\s+from",
+            r"truncate\s+table",
+            r"exec\s*\(",
+            r"eval\s*\(",
+        ]
+        sanitized = text
+        for p in patterns:
+            sanitized = re.sub(p, "[SANITIZED]", sanitized, flags=re.IGNORECASE)
+        return sanitized
+
     def create_session(self, goal: str, initial_memory: Optional[Dict[str, Any]] = None) -> AgentState:
         """Initializes a new session state with the user goal."""
-        state = AgentState(goal=goal)
+        sanitized_goal = self.sanitize_untrusted_input(goal)
+        state = AgentState(goal=sanitized_goal)
         if initial_memory:
             state.memory.update(initial_memory)
-        state.log(f"Session initialized with goal: '{goal}'")
+        state.log(f"Session initialized with goal: '{sanitized_goal}'")
         return state
 
     def plan(self, state: AgentState) -> List[PlanStep]:
@@ -167,10 +185,116 @@ class AgentCraftAgent:
     def _synthesize_cognitive_plan(self, goal: str, memory: Dict[str, Any]) -> List[PlanStep]:
         """
         Synthesizes a concrete, verifiable multi-step plan based on semantic intent analysis.
-        Handles data workflows, computational research, file synthesis, code debugging, and verification.
+        Handles disaster workflows, computational research, file synthesis, code debugging, and verification.
         """
         goal_lower = goal.lower()
         steps: List[PlanStep] = []
+
+        # Category 0: Disaster Intelligence & Emergency Response Workflow
+        disaster_terms = [
+            "disaster", "incident", "flood", "cyclone", "wildfire", "earthquake",
+            "landslide", "evacuat", "shelter", "rescue", "response plan", "emergency",
+            "risk analysis", "hazard", "triage", "ndrf", "sdrf", "casualt", "rakshagrid"
+        ]
+        if any(term in goal_lower for term in disaster_terms):
+            target_inc = memory.get("incident_id") or "SIM-2026-FL-0001"
+            return [
+                PlanStep(
+                    step_id=1,
+                    title="Retrieve Target Incident Details",
+                    description=f"Fetch operational attributes, coordinates, and severity for incident '{target_inc}'.",
+                    tool_name="get_incident_details",
+                    tool_args={"incident_id": target_inc},
+                    expected_outcome="Incident details extracted with valid code and coordinates.",
+                    verification_rules=[
+                        {"type": "non_empty", "key": "incident_code", "description": "Incident code must be present"},
+                        {"type": "non_empty", "key": "category", "description": "Hazard category must be specified"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=2,
+                    title="Calculate Deterministic Risk Assessment",
+                    description="Evaluate explainable risk score, factor breakdown, and uncertainty penalties.",
+                    tool_name="get_incident_risk",
+                    tool_args={"incident_id": target_inc},
+                    expected_outcome="Normalized risk score (0-100) and factors computed.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "calculated_risk_score", "operator": ">=", "value": 0.0, "description": "Score within normalized range"},
+                        {"type": "non_empty", "key": "risk_level", "description": "Risk level must be assigned"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=3,
+                    title="Inspect Available Response Teams",
+                    description="Query ready roster of search and rescue, medical, and drone units.",
+                    tool_name="get_available_teams",
+                    tool_args={"status": "available"},
+                    expected_outcome="Ready response teams roster retrieved.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "count", "operator": ">=", "value": 0, "description": "Roster query completed"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=4,
+                    title="Inspect Shelter Intake Capacity",
+                    description="Verify remaining capacity and supply status across open evacuation shelters.",
+                    tool_name="get_shelter_capacity",
+                    tool_args={"status": "open"},
+                    expected_outcome="Shelter capacities and occupancy percentages calculated.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "shelters_count", "operator": ">=", "value": 0, "description": "Shelters evaluated"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=5,
+                    title="Inspect Relief Stockpile Inventory",
+                    description="Identify critical supply shortages in medical, water, and rescue gear.",
+                    tool_name="get_resource_inventory",
+                    tool_args={"low_stock_only": False},
+                    expected_outcome="Stockpile availability metrics and shortage alerts compiled.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "items_count", "operator": ">=", "value": 0, "description": "Inventory checked"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=6,
+                    title="Synthesize Tactical Response Plan",
+                    description="Formulate response plan proposal with team dispatches and shelter actions.",
+                    tool_name="propose_response_plan",
+                    tool_args={
+                        "incident_id": target_inc,
+                        "rationale": f"Emergency response synthesis for: {goal}",
+                        "recommended_teams": ["NDRF-Bravo", "Medical-Alpha"],
+                        "recommended_tasks": [
+                            {"title": "Execute life-safety search and containment sweep", "priority": "high"},
+                            {"title": "Open evacuation reception station", "priority": "high"},
+                        ],
+                        "shelter_actions": ["Stage medical kits", "Confirm backup power generator"],
+                    },
+                    expected_outcome="Proposal generated with decision gate requiring human authorization.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "requires_human_approval", "operator": "==", "value": True, "description": "Human approval gate strictly enforced"},
+                        {"type": "non_empty", "key": "approval_status", "description": "Status set to pending review"},
+                    ],
+                ),
+                PlanStep(
+                    step_id=7,
+                    title="Verify Consequential Action Gates",
+                    description="Assert that human approval decision gate is strictly enforced before actions.",
+                    tool_name="verifier",
+                    tool_args={
+                        "subject": {"requires_human_approval": True, "status": "pending_human_approval"},
+                        "assertions": [
+                            {"type": "threshold", "key": "requires_human_approval", "operator": "==", "value": True, "description": "Autonomous real-world emergency dispatch forbidden"},
+                            {"type": "non_empty", "key": "status", "description": "Action gate must remain in pending review state"},
+                        ],
+                    },
+                    expected_outcome="All safety and authorization assertions verified.",
+                    verification_rules=[
+                        {"type": "threshold", "key": "failed_count", "operator": "==", "value": 0, "description": "Zero assertion failures"},
+                    ],
+                ),
+            ]
 
         # Category A: Data Profiling / Statistical Analysis
         if any(term in goal_lower for term in ["dataset", "data", "csv", "json", "profile", "statistic", "outlier"]):

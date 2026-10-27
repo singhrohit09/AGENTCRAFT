@@ -9,6 +9,16 @@ from ai.tools.file_manager import FileManagerTool
 from ai.tools.data_analyzer import DataAnalyzerTool
 from ai.tools.web_fetcher import WebFetcherTool
 from ai.tools.verifier import VerifierTool
+from ai.tools.disaster_tools import (
+    GetIncidentDetailsTool,
+    GetIncidentRiskTool,
+    GetWeatherObservationsTool,
+    GetAvailableTeamsTool,
+    GetActiveTasksTool,
+    GetShelterCapacityTool,
+    GetResourceInventoryTool,
+    ProposeResponsePlanTool,
+)
 
 
 class ToolRegistry:
@@ -22,6 +32,16 @@ class ToolRegistry:
         self.register(DataAnalyzerTool())
         self.register(WebFetcherTool(allow_network=allow_network))
         self.register(VerifierTool())
+
+        # Phase 4: Register Disaster Intelligence & Response tools
+        self.register(GetIncidentDetailsTool())
+        self.register(GetIncidentRiskTool())
+        self.register(GetWeatherObservationsTool())
+        self.register(GetAvailableTeamsTool())
+        self.register(GetActiveTasksTool())
+        self.register(GetShelterCapacityTool())
+        self.register(GetResourceInventoryTool())
+        self.register(ProposeResponsePlanTool())
 
     def register(self, tool: BaseTool) -> None:
         """Registers a tool instance into the registry."""
@@ -57,4 +77,12 @@ __all__ = [
     "DataAnalyzerTool",
     "WebFetcherTool",
     "VerifierTool",
+    "GetIncidentDetailsTool",
+    "GetIncidentRiskTool",
+    "GetWeatherObservationsTool",
+    "GetAvailableTeamsTool",
+    "GetActiveTasksTool",
+    "GetShelterCapacityTool",
+    "GetResourceInventoryTool",
+    "ProposeResponsePlanTool",
 ]

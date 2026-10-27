@@ -25,6 +25,8 @@ from backend.routes.agent_routes import router as agent_router
 from backend.routes.rakshagrid_routes import router as rakshagrid_router
 from backend.routes.incident_routes import router as incident_router
 from backend.routes.coordination_routes import router as coordination_router
+from backend.routes.intelligence_routes import router as intelligence_router
+from backend.routes.alert_routes import router as alert_router
 from backend.services.agent_service import agent_service
 
 app = FastAPI(
@@ -51,6 +53,8 @@ app.include_router(agent_router)
 app.include_router(rakshagrid_router)
 app.include_router(incident_router)
 app.include_router(coordination_router)
+app.include_router(intelligence_router)
+app.include_router(alert_router)
 
 APP_START_TIME = time.time()
 
@@ -78,6 +82,8 @@ def root_status():
         "tasks_v1": "/api/v1/tasks",
         "shelters_v1": "/api/v1/shelters",
         "resources_v1": "/api/v1/resources",
+        "intelligence_v1": "/api/v1/intelligence",
+        "alerts_v1": "/api/v1/alerts",
     }
 
 

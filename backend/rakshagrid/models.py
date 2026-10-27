@@ -222,6 +222,15 @@ class Alert(Base):
     instructions = Column(Text, nullable=False)
     broadcast_status = Column(String(20), nullable=False, default="active", index=True)
     
+    # Phase 4 Intelligent Alert Lifecycle & Provenance
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_by = Column(String(100), nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(String(100), nullable=True)
+    trigger_reason = Column(Text, nullable=True)
+    source_type = Column(String(50), nullable=False, default="risk_engine")
+    dedup_key = Column(String(120), nullable=True, index=True)
+
     issued_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -229,7 +238,7 @@ class Alert(Base):
     incident = relationship("Incident", back_populates="alerts")
 
     __table_args__ = (
-        CheckConstraint("broadcast_status IN ('active', 'expired', 'cancelled', 'draft')", name="ck_alert_status"),
+        CheckConstraint("broadcast_status IN ('active', 'acknowledged', 'resolved', 'expired', 'cancelled', 'draft')", name="ck_alert_status"),
     )
 
 
@@ -452,6 +461,8 @@ class RiskAssessment(Base):
     risk_level = Column(String(20), nullable=False, index=True)
     simulated_factors = Column(Text, nullable=True)
     recommended_interventions = Column(Text, nullable=False)
+    data_sources = Column(Text, nullable=True)  # JSON-encoded external/internal data sources
+    confidence_score = Column(Float, nullable=False, default=1.0)
     
     assessed_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -476,3 +487,45 @@ class AuditLog(Base):
     ip_address = Column(String(50), nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class DisasterSimulation(Base):
+    """
+    Simulated Hypothetical Disaster Scenario Execution.
+    Completely isolated from live operational state.
+    """
+
+    __tablename__ = "disaster_simulations"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    scenario_name = Column(String(100), nullable=False)
+    scenario_type = Column(String(50), nullable=False, index=True)
+    input_parameters = Column(Text, nullable=False)  # JSON-encoded scenario parameters
+    results_summary = Column(Text, nullable=False)   # JSON-encoded projected impact metrics
+    created_by = Column(String(100), nullable=False, default="operator")
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class AIAnalysisRecord(Base):
+    """
+    Traceable Audit Record of AI Disaster Intelligence Agent Inferences and Recommendations.
+    Maintains provenance, tools executed, and human approval state.
+    """
+
+    __tablename__ = "ai_analysis_records"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    incident_id = Column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
+    query_type = Column(String(50), nullable=False, index=True)
+    provider = Column(String(50), nullable=False)
+    model_name = Column(String(100), nullable=False)
+    prompt_summary = Column(Text, nullable=True)
+    response_content = Column(Text, nullable=False)
+    structured_payload = Column(Text, nullable=True)  # JSON-encoded structured recommendations
+    tools_used = Column(Text, nullable=True)          # JSON-encoded list of tool calls and results
+    requires_human_approval = Column(Boolean, default=True, nullable=False)
+    approval_status = Column(String(30), default="pending", nullable=False, index=True)
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+

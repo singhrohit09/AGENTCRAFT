@@ -1,43 +1,46 @@
-# AgentCraft — System Limitations & Future Roadmap
+# AgentCraft / RakshaGrid — System Limitations & Future Roadmap
 
-This document outlines the current boundaries, trade-offs, security assumptions, and future enhancements of **AgentCraft**.
-
----
-
-## 1. Current System Limitations
-
-### 1.1 Sandboxed Execution Scope
-- `CodeRunnerTool` operates inside a managed local execution scope with safe built-ins and redirected standard I/O. While this prevents accidental file leaks and standard crashes, it does not use a hardware virtualization boundary (e.g., gVisor, Firecracker VM, or Docker).
-- High-risk operations (such as compiling C extensions, kernel-level networking, or arbitrary bash sub-processes) are deliberately blocked.
-
-### 1.2 Network Access Boundaries
-- `WebFetcherTool` provides both real HTTP queries and a local simulated knowledge retrieval provider.
-- By default, external HTTP calls have a 10-second timeout and do not handle complex browser rendering (JavaScript execution via headless Chromium is deferred to future releases).
-
-### 1.3 LLM Provider Rate Limits
-- When operating in `hybrid` or `openai` mode, throughput is subject to provider rate limits (tokens per minute, requests per minute).
-- To mitigate this, AgentCraft includes deterministic fallback planning that guarantees full operational capability even during provider outages or rate-limit saturation.
-
-### 1.4 State Persistence Strategy
-- Current sessions are stored in memory (`AgentService.sessions`) with file-backed sandbox storage. If the backend process restarts, active in-memory sessions reset.
-- Persistent database storage (PostgreSQL / SQLite) is planned for production deployments.
+This document outlines the operational boundaries, assumptions, trade-offs, and future engineering milestones for **AgentCraft / RakshaGrid**.
 
 ---
 
-## 2. Failure Handling & Edge Case Behavior
+## 1. Current System Boundaries & Trade-Offs
 
-| Failure Mode | AgentCraft Mitigation |
+### 1.1 External Data & Telemetry
+- **API Quotas**: Real-time hydro-meteorological telemetry relies on the Open-Meteo Weather Forecast and Flood APIs. In high-traffic deployments, rate limits on public tiers could trigger fallback responses.
+- **Mitigation**: The system incorporates an in-memory 15-minute Time-To-Live (TTL) cache and resilient offline heuristic fallbacks that generate estimated data when remote APIs are unreachable.
+
+### 1.2 GIS & Cartographic Mapping
+- **Tile Sources**: The Leaflet-based interactive live map currently pulls map tiles from OpenStreetMap over HTTPS.
+- **Remote Field Deployments**: In disaster scenarios with complete cellular and internet blackouts, map tiles may not render without pre-cached offline tile packages. (Vector coordinates and markers continue to render accurately).
+
+### 1.3 Emergency Warning Delivery (CAP Gateways)
+- **Broadcast Reach**: Alerts conform to the Common Alerting Protocol (CAP) and are published immediately to the in-app WebSocket/REST feeds and dashboard console.
+- **Telecom Carrier Integration**: Direct SMS or Cell Broadcast (CB) transmission requires integration with government telecommunications authorities and dedicated SMS gateways.
+
+### 1.4 Sandboxed Code Execution
+- **Isolation Scope**: Code execution runs in an isolated Python process namespace with standard input/output redirection and mathematical standard library modules.
+- **System Calls**: Low-level networking, raw socket creation, and destructive file-system operations are strictly prohibited.
+
+---
+
+## 2. Failure Handling & Edge Case Safeguards
+
+| Failure Mode | AgentCraft / RakshaGrid Safeguard |
 | :--- | :--- |
-| **Directory Traversal Attack** | Enforces path normalization within `FileManagerTool`; rejects any `../` paths with an `Access denied` error and triggers path normalization recovery. |
-| **Infinite Recursion in Code** | Scripts run under compile guards and execution timeouts to prevent hanging processes. |
-| **Flaky External APIs** | HTTP client automatically follows redirects and handles JSON decode fallbacks cleanly without crashing the agent pipeline. |
-| **Ambiguous Goals** | When a goal does not map cleanly to standard domains, the cognitive synthesizer constructs a generalized research-and-validate plan rather than aborting. |
+| **Directory Traversal** | Path normalization checks in `FileManagerTool` ensure all operations are strictly bound within `./temp_sandbox`. |
+| **AI Decision Hallucinations** | Consequential operations (dispatching teams, allocating inventory) require human commander sign-off via mandatory approval gates. |
+| **Negative Inventory & Overbooking** | Check constraints (`quantity_available >= 0` and `current_occupancy <= capacity`) enforce relational consistency in atomic database transactions. |
+| **Alert Notification Floods** | SHA-256 deduplication hashing with a 15-minute cooldown window suppresses redundant broadcast spikes. |
+| **Simulation State Contamination** | Simulations operate exclusively on in-memory clones or decoupled query projections, ensuring zero database mutations. |
+| **API Denial of Service (DoS)** | Thread-safe sliding-window rate limiters throttle sensitive intelligence and agent endpoints. |
 
 ---
 
-## 3. AgentCraft 2.0 Roadmap
+## 3. Future Roadmap (AgentCraft 2.0 / Post-Challenge)
 
-1. **Hardware-Isolated MicroVM Sandboxes**: Integrate Firecracker or containerized sandboxes for untrusted arbitrary code execution.
-2. **Persistent Relational State Store**: Store session traces and benchmark histories in SQLite/PostgreSQL with vector embeddings for semantic session retrieval.
-3. **Multi-Agent Collaboration**: Enable multi-agent debates and peer review where one agent plans, another executes, and a third acts as an adversarial auditor.
-4. **Interactive Human-in-the-Loop Approval**: Allow operators to pause execution on high-impact steps (e.g. destructive file deletes or external payments) to await human confirmation.
+1. **Offline Map Tile Packager**: Bundle offline MBTiles / vector map caches directly within the container for deployment in deep-field disaster zones without internet connectivity.
+2. **Cell Broadcast & SMS Gateway Connectors**: Native adapters for Twilio, AWS SNS, and Indian NDMA CAP-CP (Common Alerting Protocol - Integrated Early Warning System).
+3. **Multi-Agent Swarm Collaboration**: Specialized agent sub-roles (e.g., Triage Agent, Logistics Routing Agent, Evacuation Modeler) operating in collaborative peer networks.
+4. **Hardware-Isolated MicroVM Sandboxes**: Integration with AWS Firecracker or gVisor for arbitrary untrusted code execution.
+5. **Satellite Imagery & Drone Telemetry Streaming**: Direct ingestion of GeoTIFF orthomosaics and live video stream analysis from reconnaissance drones.

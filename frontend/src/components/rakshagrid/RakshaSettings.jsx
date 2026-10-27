@@ -121,6 +121,8 @@ export default function RakshaSettings({ dbStatus, onRefreshDb }) {
                   'environmental_observations',
                   'risk_assessments',
                   'audit_logs',
+                  'disaster_simulations',
+                  'ai_analysis_records',
                 ].map((tbl) => (
                   <span
                     key={tbl}

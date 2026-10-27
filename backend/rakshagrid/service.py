@@ -98,8 +98,111 @@ class RakshaGridService:
             "models_registered_count": 11,
         }
 
-    def get_overview_data(self) -> Dict[str, Any]:
+    def get_overview_data(self, db: Optional[Any] = None) -> Dict[str, Any]:
         """Compiles high-level tactical statistics for the command dashboard."""
+        # If demo mode is disabled and database session is provided, aggregate live operational data
+        if not rakshagrid_settings.RAKSHAGRID_DEMO_MODE and db is not None:
+            try:
+                from backend.rakshagrid.models import Incident, Alert, ResponseTeam, Shelter, Resource
+                
+                db_incidents = db.query(Incident).order_by(Incident.reported_at.desc()).all()
+                db_teams = db.query(ResponseTeam).all()
+                db_shelters = db.query(Shelter).all()
+                db_resources = db.query(Resource).all()
+                db_alerts = db.query(Alert).filter(Alert.broadcast_status.in_(["active", "acknowledged"])).order_by(Alert.issued_at.desc()).all()
+
+                active_incidents = [i for i in db_incidents if i.status in ("reported", "under_assessment", "confirmed", "response_active")]
+                critical_count = sum(1 for i in active_incidents if i.severity == "critical")
+                deployed_teams = sum(1 for t in db_teams if t.current_status in ("assigned", "busy"))
+
+                total_capacity = sum(s.capacity for s in db_shelters)
+                total_occupancy = sum(s.current_occupancy for s in db_shelters)
+                occupancy_pct = round((total_occupancy / total_capacity * 100), 1) if total_capacity else 0.0
+
+                resource_readiness = 100.0
+                if db_resources:
+                    ready_count = sum(1 for r in db_resources if r.quantity_available > 0.25 * r.quantity_total)
+                    resource_readiness = round(ready_count / len(db_resources) * 100, 1)
+
+                db_stat = self.get_database_status()["status"]
+
+                if len(db_incidents) == 0 and len(db_teams) == 0 and len(db_shelters) == 0:
+                    threat_desc = "DEFCON 5 — Routine Standby & Preparedness (Database Empty)"
+                    disclaimer = "Database initialized. No active emergency records found. Ready to ingest incidents or run optional demonstration seeder."
+                elif critical_count > 0:
+                    threat_desc = "DEFCON 1 — Catastrophic Disaster Emergency Declared"
+                    disclaimer = "Live Operational State — Displaying verified records from AgentCraft / RakshaGrid persistent database."
+                else:
+                    threat_desc = "DEFCON 2 — High Severity Multi-Hazard Escalation"
+                    disclaimer = "Live Operational State — Displaying verified records from AgentCraft / RakshaGrid persistent database."
+
+                stats = {
+                    "defcon_level": 1 if critical_count > 0 else (2 if active_incidents else 5),
+                    "threat_description": threat_desc,
+                    "active_incidents_count": len(active_incidents),
+                    "critical_incidents_count": critical_count,
+                    "deployed_teams_count": deployed_teams,
+                    "active_alerts_count": len(db_alerts),
+                    "shelters_open_count": sum(1 for s in db_shelters if s.status == "open"),
+                    "total_sheltered_population": total_occupancy,
+                    "total_shelter_capacity": total_capacity,
+                    "overall_shelter_occupancy_pct": occupancy_pct,
+                    "resource_readiness_pct": resource_readiness,
+                    "database_status": db_stat,
+                    "demo_mode_active": False,
+                }
+
+                mapped_incidents = []
+                for inc in active_incidents[:5]:
+                    mapped_incidents.append({
+                        "id": str(inc.id),
+                        "incident_code": inc.incident_code,
+                        "title": inc.title,
+                        "disaster_type": inc.category or "other",
+                        "severity": inc.severity or "medium",
+                        "status": inc.status,
+                        "latitude": float(inc.latitude or 0.0),
+                        "longitude": float(inc.longitude or 0.0),
+                        "location_name": inc.location_description or "Sector Area",
+                        "affected_region": inc.location_description or "Regional Sector",
+                        "affected_population_estimate": inc.affected_population or 0,
+                        "casualty_count_estimate": 0,
+                        "description": inc.description,
+                        "reported_at": inc.reported_at,
+                        "updated_at": inc.updated_at,
+                        "is_demo": False,
+                    })
+
+                mapped_alerts = []
+                for alt in db_alerts[:4]:
+                    mapped_alerts.append({
+                        "id": str(alt.id),
+                        "alert_code": alt.alert_code,
+                        "headline": alt.headline,
+                        "urgency": alt.urgency,
+                        "severity": alt.severity,
+                        "certainty": alt.certainty,
+                        "target_region": alt.target_region,
+                        "evacuation_recommended": alt.evacuation_recommended,
+                        "instructions": alt.instructions,
+                        "broadcast_status": alt.broadcast_status,
+                        "issued_at": alt.issued_at,
+                        "expires_at": alt.expires_at,
+                        "is_demo": False,
+                    })
+
+                return {
+                    "stats": stats,
+                    "active_incidents": mapped_incidents,
+                    "high_priority_alerts": mapped_alerts,
+                    "recent_activity": self._demo_activity[:8],
+                    "disclaimer": disclaimer,
+                }
+            except Exception:
+                # Fall back gracefully to demo telemetry if query fails
+                pass
+
+        # Demo mode telemetry (default in dev/test)
         active_incidents = [i for i in self._demo_incidents if i["status"] in ("active", "assessing")]
         critical_count = sum(1 for i in active_incidents if i["severity"] == "critical")
         deployed_teams = sum(1 for t in self._demo_teams if t["current_status"] in ("deployed", "en_route"))
@@ -142,6 +245,7 @@ class RakshaGridService:
             "recent_activity": self._demo_activity[:8],
             "disclaimer": "[FICTIONAL DEMO DATA - PHASE 1 FOUNDATION] Real-time sensors and live GPS tracking are scheduled for Phase 2.",
         }
+
 
     def list_incidents(
         self,

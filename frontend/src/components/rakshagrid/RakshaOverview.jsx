@@ -3,7 +3,6 @@ import { DemoNoticeBanner, ModalDialog } from './StateComponents';
 
 export default function RakshaOverview({ overviewData, onNavigate }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
-  const [quickActionNotice, setQuickActionNotice] = useState(null);
 
   const stats = overviewData?.stats || {
     defcon_level: 2,
@@ -25,10 +24,6 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
   const alerts = overviewData?.high_priority_alerts || [];
   const activity = overviewData?.recent_activity || [];
 
-  const handleQuickAction = (actionName, details) => {
-    setQuickActionNotice({ actionName, details });
-  };
-
   return (
     <>
       <DemoNoticeBanner text={overviewData?.disclaimer} />
@@ -47,14 +42,15 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
           </button>
           <button
             className="rg-btn rg-btn-outline"
-            onClick={() =>
-              handleQuickAction(
-                'Broadcast Alert',
-                'Phase 1 Foundation: Alerting adheres to Common Alerting Protocol (CAP) schema. Multi-channel SMS/VHF dispatch services will be enabled in Phase 2.'
-              )
-            }
+            onClick={() => onNavigate && onNavigate('alerts')}
           >
-            Broadcast Alert
+            Broadcast Console →
+          </button>
+          <button
+            className="rg-btn rg-btn-outline"
+            onClick={() => onNavigate && onNavigate('risk-analysis')}
+          >
+            Intelligence & Agent →
           </button>
         </div>
       </div>
@@ -139,39 +135,58 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {incidents.map((inc) => (
-                    <tr key={inc.id}>
-                      <td style={{ fontFamily: 'var(--rg-font-mono)', fontWeight: 600 }}>{inc.incident_code}</td>
-                      <td>
-                        <div style={{ fontWeight: 600, color: 'var(--rg-text-primary)' }}>{inc.title}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--rg-text-muted)' }}>{inc.location_name}</div>
-                      </td>
-                      <td>
-                        <span style={{ textTransform: 'uppercase', fontSize: '10px', fontFamily: 'var(--rg-font-mono)' }}>
-                          {inc.disaster_type}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`rg-pill rg-pill-${inc.severity}`}>
-                          {inc.severity}
-                        </span>
-                      </td>
-                      <td style={{ fontFamily: 'var(--rg-font-mono)' }}>
-                        {inc.affected_population_estimate?.toLocaleString() || 'N/A'}
-                      </td>
-                      <td>
-                        <span className="rg-pill rg-pill-active">{inc.status}</span>
-                      </td>
-                      <td>
+                  {incidents.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--rg-text-muted)' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rg-text-primary)', marginBottom: '6px' }}>
+                          No Active Disaster Incidents
+                        </div>
+                        <div style={{ fontSize: '12px', marginBottom: '14px' }}>
+                          All monitored emergency sectors are currently nominal with zero uncontained hazards.
+                        </div>
                         <button
-                          className="rg-btn rg-btn-outline rg-btn-sm"
-                          onClick={() => setSelectedIncident(inc)}
+                          className="rg-btn rg-btn-primary rg-btn-sm"
+                          onClick={() => onNavigate && onNavigate('incidents')}
                         >
-                          Inspect
+                          + Report Incident
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    incidents.map((inc) => (
+                      <tr key={inc.id}>
+                        <td style={{ fontFamily: 'var(--rg-font-mono)', fontWeight: 600 }}>{inc.incident_code}</td>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--rg-text-primary)' }}>{inc.title}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--rg-text-muted)' }}>{inc.location_name}</div>
+                        </td>
+                        <td>
+                          <span style={{ textTransform: 'uppercase', fontSize: '10px', fontFamily: 'var(--rg-font-mono)' }}>
+                            {inc.disaster_type}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`rg-pill rg-pill-${inc.severity}`}>
+                            {inc.severity}
+                          </span>
+                        </td>
+                        <td style={{ fontFamily: 'var(--rg-font-mono)' }}>
+                          {inc.affected_population_estimate?.toLocaleString() || 'N/A'}
+                        </td>
+                        <td>
+                          <span className="rg-pill rg-pill-active">{inc.status}</span>
+                        </td>
+                        <td>
+                          <button
+                            className="rg-btn rg-btn-outline rg-btn-sm"
+                            onClick={() => setSelectedIncident(inc)}
+                          >
+                            Inspect
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -194,39 +209,46 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
               </button>
             </div>
             <div className="rg-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {alerts.map((alt) => (
-                <div
-                  key={alt.id}
-                  style={{
-                    backgroundColor: 'var(--rg-bg-card)',
-                    borderLeft: alt.severity === 'extreme' ? '3px solid var(--rg-red-base)' : '3px solid var(--rg-amber-base)',
-                    borderRadius: 'var(--rg-radius-sm)',
-                    padding: '12px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span className={`rg-pill rg-pill-${alt.severity === 'extreme' ? 'critical' : 'severe'}`}>
-                      {alt.severity}
-                    </span>
-                    <span style={{ fontSize: '10px', fontFamily: 'var(--rg-font-mono)', color: 'var(--rg-text-muted)' }}>
-                      {alt.alert_code}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--rg-text-primary)', marginBottom: '4px' }}>
-                    {alt.headline}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--rg-text-secondary)', marginBottom: '6px' }}>
-                    Target: {alt.target_region}
-                  </div>
-                  {alt.evacuation_recommended && (
-                    <div style={{ fontSize: '11px', color: 'var(--rg-red-light)', fontWeight: 600 }}>
-                      ⚠️ Immediate Evacuation Recommended
-                    </div>
-                  )}
+              {alerts.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--rg-text-muted)', fontSize: '12px' }}>
+                  No active emergency broadcasts at this time.
                 </div>
-              ))}
+              ) : (
+                alerts.map((alt) => (
+                  <div
+                    key={alt.id}
+                    style={{
+                      backgroundColor: 'var(--rg-bg-card)',
+                      borderLeft: alt.severity === 'extreme' ? '3px solid var(--rg-red-base)' : '3px solid var(--rg-amber-base)',
+                      borderRadius: 'var(--rg-radius-sm)',
+                      padding: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className={`rg-pill rg-pill-${alt.severity === 'extreme' ? 'critical' : 'severe'}`}>
+                        {alt.severity}
+                      </span>
+                      <span style={{ fontSize: '10px', fontFamily: 'var(--rg-font-mono)', color: 'var(--rg-text-muted)' }}>
+                        {alt.alert_code}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--rg-text-primary)', marginBottom: '4px' }}>
+                      {alt.headline}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--rg-text-secondary)', marginBottom: '6px' }}>
+                      Target: {alt.target_region}
+                    </div>
+                    {alt.evacuation_recommended && (
+                      <div style={{ fontSize: '11px', color: 'var(--rg-red-light)', fontWeight: 600 }}>
+                        ⚠️ Immediate Evacuation Recommended
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
+
 
           {/* Rapid Field Telemetry Stream */}
           <div className="rg-panel">
@@ -295,30 +317,36 @@ export default function RakshaOverview({ overviewData, onNavigate }) {
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--rg-text-muted)' }}>
-              * Data Source: Fictional demonstration telemetry for Phase 1 architecture verification.
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                className="rg-btn rg-btn-secondary rg-btn-sm"
+                onClick={() => setSelectedIncident(null)}
+              >
+                Close
+              </button>
+              <button
+                className="rg-btn rg-btn-outline rg-btn-sm"
+                onClick={() => {
+                  setSelectedIncident(null);
+                  if (onNavigate) onNavigate('live-map');
+                }}
+              >
+                🗺️ View on GIS Map
+              </button>
+              <button
+                className="rg-btn rg-btn-primary rg-btn-sm"
+                onClick={() => {
+                  setSelectedIncident(null);
+                  if (onNavigate) onNavigate('risk-analysis');
+                }}
+              >
+                📊 Assess Risk & AI Response
+              </button>
             </div>
           </div>
         )}
       </ModalDialog>
-
-      {/* Quick Action Phase 1 Informational Notice Modal */}
-      <ModalDialog
-        isOpen={Boolean(quickActionNotice)}
-        onClose={() => setQuickActionNotice(null)}
-        title={quickActionNotice?.actionName || 'Operational Workflow Notice'}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <span className="rg-pulse-dot warning" />
-            <span style={{ fontWeight: 600, color: 'var(--rg-amber-light)' }}>Phase 1 Foundation Scope</span>
-          </div>
-          <p style={{ color: 'var(--rg-text-secondary)' }}>{quickActionNotice?.details}</p>
-          <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'var(--rg-bg-card)', borderRadius: 'var(--rg-radius-sm)', fontSize: '12px' }}>
-            <strong>Phase 2 Roadmap:</strong> Form intake validation, PostgreSQL ACID transaction commit, spatial indexing, automated CAP alert SMS/VHF dispatch, and team task assignments.
-          </div>
-        </div>
-      </ModalDialog>
     </>
   );
 }
+

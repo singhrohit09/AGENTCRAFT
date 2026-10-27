@@ -5,9 +5,10 @@ tool discovery, step-by-step stepping, verification, and benchmark suites.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from backend.rakshagrid.security import autonomous_agent_limiter
 from backend.services.agent_service import agent_service
 from backend.services.benchmark_service import benchmark_service
 
@@ -34,7 +35,7 @@ class VerifyRequest(BaseModel):
 
 
 @router.post("/run", status_code=status.HTTP_200_OK)
-def run_autonomous_goal(req: RunGoalRequest):
+def run_autonomous_goal(req: RunGoalRequest, _limiter: None = Depends(autonomous_agent_limiter)):
     """Executes a goal end-to-end autonomously with full planning, tool calls, and verification."""
     try:
         state = agent_service.run_autonomous(goal=req.goal, initial_memory=req.initial_memory)

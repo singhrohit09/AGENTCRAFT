@@ -5,8 +5,10 @@ PostgreSQL database status verification, emergency alerts, and team logistics.
 """
 
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 
+from backend.database.session import get_db
 from backend.rakshagrid.config import rakshagrid_settings
 from backend.rakshagrid.schemas import (
     RakshaGridHealthResponse,
@@ -75,10 +77,10 @@ def get_database_status():
     summary="Tactical Mission Control Overview",
     description="Aggregates active disaster incidents, DEFCON threat level, emergency alerts, and shelter occupancy.",
 )
-def get_tactical_overview():
+def get_tactical_overview(db: Session = Depends(get_db)):
     """Retrieves aggregated statistics and high-priority alerts for the overview dashboard."""
     try:
-        return rakshagrid_service.get_overview_data()
+        return rakshagrid_service.get_overview_data(db=db)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

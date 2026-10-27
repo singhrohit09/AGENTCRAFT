@@ -17,6 +17,7 @@ from backend.rakshagrid.auth import (
     get_current_user,
     require_role,
 )
+from backend.rakshagrid.security import alert_evaluation_limiter
 from backend.services.alert_service import alert_service
 
 router = APIRouter(
@@ -123,6 +124,7 @@ def list_alerts(
 def evaluate_alert_rules(
     db: Session = Depends(get_db),
     current_user: UserIdentity = Depends(require_role(UserRole.STAFF_ROLES)),
+    _limiter: None = Depends(alert_evaluation_limiter),
 ):
     try:
         results = alert_service.evaluate_system_alerts(db)

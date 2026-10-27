@@ -28,6 +28,8 @@ from backend.rakshagrid.models import (
     Shelter,
     Resource,
     ResourceMovement,
+    Alert,
+    RiskAssessment,
 )
 
 logger = logging.getLogger("rakshagrid.seeder")
@@ -398,6 +400,41 @@ DEV_SEED_RESOURCES = [
     },
 ]
 
+DEV_SEED_ALERTS = [
+    {
+        "id": uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d501"),
+        "incident_id": uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d401"),
+        "alert_code": "ALT-2026-FL-0001",
+        "headline": "CRITICAL: Embankment Overtopping & Low-Lying Evacuation Order",
+        "urgency": "immediate",
+        "severity": "extreme",
+        "certainty": "observed",
+        "target_region": "Guwahati Sector 4, Kamrup Metropolitan",
+        "evacuation_recommended": True,
+        "instructions": "Move immediately to Sector 4 Relief Camp or designated high-ground shelters. Avoid embankment roads.",
+        "broadcast_status": "active",
+        "trigger_reason": "Brahmaputra water level exceeded red mark by 1.2m",
+        "source_type": "automated_rule",
+        "dedup_key": "sim-seed-alert-001",
+    },
+    {
+        "id": uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d502"),
+        "incident_id": uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d402"),
+        "alert_code": "ALT-2026-SW-0002",
+        "headline": "SEVERE: Severe Cyclonic Storm Warning & Coastal Staging",
+        "urgency": "expected",
+        "severity": "severe",
+        "certainty": "likely",
+        "target_region": "Puri Coastal Zone, Odisha",
+        "evacuation_recommended": True,
+        "instructions": "All maritime activities suspended. Cyclone shelters operational across coastal belt.",
+        "broadcast_status": "active",
+        "trigger_reason": "High wind advisory exceeding 85 km/h",
+        "source_type": "automated_rule",
+        "dedup_key": "sim-seed-alert-002",
+    },
+]
+
 
 def seed_dev_incidents(db: Session, reset: bool = False) -> dict:
     """
@@ -571,6 +608,34 @@ def seed_dev_incidents(db: Session, reset: bool = False) -> dict:
 
     db.commit()
 
+    # 6. Alerts
+    inserted_alerts = 0
+    for item in DEV_SEED_ALERTS:
+        existing = db.query(Alert).filter(Alert.alert_code == item["alert_code"]).first()
+        if not existing:
+            alt = Alert(
+                id=item["id"],
+                incident_id=item["incident_id"],
+                alert_code=item["alert_code"],
+                headline=item["headline"],
+                urgency=item["urgency"],
+                severity=item["severity"],
+                certainty=item["certainty"],
+                target_region=item["target_region"],
+                evacuation_recommended=item["evacuation_recommended"],
+                instructions=item["instructions"],
+                broadcast_status=item["broadcast_status"],
+                trigger_reason=item["trigger_reason"],
+                source_type=item["source_type"],
+                dedup_key=item["dedup_key"],
+                issued_at=now - timedelta(hours=2),
+                created_at=now - timedelta(hours=2),
+            )
+            db.add(alt)
+            inserted_alerts += 1
+
+    db.commit()
+
     return {
         "status": "success",
         "inserted": inserted_incidents,
@@ -582,6 +647,7 @@ def seed_dev_incidents(db: Session, reset: bool = False) -> dict:
         "teams_seeded": inserted_teams,
         "tasks_seeded": inserted_tasks,
         "resources_seeded": inserted_resources,
+        "alerts_seeded": inserted_alerts,
     }
 
 

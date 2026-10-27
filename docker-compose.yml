@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agentcraft-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rakshagrid_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-rakshagrid_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_disaster_ops_2026}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentcraft-platform
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - AGENTCRAFT_ENV=production
+      - AGENTCRAFT_DEBUG=false
+      - RAKSHAGRID_DEMO_MODE=false
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-rakshagrid_user}:${POSTGRES_PASSWORD:-secure_disaster_ops_2026}@db:5432/${POSTGRES_DB:-rakshagrid_prod}
+      - AGENTCRAFT_SECRET_KEY=${AGENTCRAFT_SECRET_KEY:-CHANGE_ME_IN_PRODUCTION_AGENTCRAFT_SECRET_KEY_MIN_32_CHARS}
+      - AGENTCRAFT_CORS_ORIGINS=*
+      - AGENTCRAFT_AI_PROVIDER=${AGENTCRAFT_AI_PROVIDER:-heuristic}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+      - INDIA_CWC_API_KEY=${INDIA_CWC_API_KEY:-}
+    volumes:
+      - uploads_data:/app/uploads
+      - audit_data:/app/audit
+
+volumes:
+  pgdata:
+    name: agentcraft_pgdata
+  uploads_data:
+    name: agentcraft_uploads
+  audit_data:
+    name: agentcraft_audit

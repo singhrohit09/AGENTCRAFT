@@ -37,15 +37,22 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Enable CORS for frontend clients
+# Configure CORS for frontend clients
+cors_origins_env = os.getenv("AGENTCRAFT_CORS_ORIGINS", "*")
+if cors_origins_env.strip() == "*":
+    allow_origins = ["*"]
+else:
+    allow_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # Register route modules
@@ -65,8 +72,13 @@ if FRONTEND_DIST.exists():
 
 
 @app.get("/", tags=["Root"])
-def root_status():
-    """AgentCraft & RakshaGrid API Root Information."""
+def root_status(request: Request):
+    """AgentCraft & RakshaGrid API Root Information or SPA UI."""
+    # If a web browser requests HTML and frontend production build exists, serve index.html
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
+
     return {
         "project": "AgentCraft",
         "subsystem": "RakshaGrid",
@@ -109,14 +121,17 @@ def health_check():
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global structured JSON error handler for unhandled exceptions."""
+    is_debug = os.getenv("AGENTCRAFT_DEBUG", "true").lower() == "true"
+    error_msg = str(exc) if is_debug else "An internal server error occurred. Please contact the system administrator."
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "InternalServerError",
-            "message": str(exc),
+            "message": error_msg,
             "path": str(request.url.path),
         },
     )
+
 
 
 if __name__ == "__main__":

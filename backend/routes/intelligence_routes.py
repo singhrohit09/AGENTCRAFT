@@ -16,6 +16,7 @@ from backend.rakshagrid.auth import (
     get_current_user,
     require_role,
 )
+from backend.rakshagrid.security import ai_analysis_limiter, simulation_limiter
 from backend.rakshagrid.models import Incident, RiskAssessment
 from backend.services.external_data_service import disaster_data_service
 from backend.services.risk_engine import disaster_risk_engine
@@ -200,6 +201,7 @@ def run_agent_analysis(
     req: AnalyzeSituationRequest,
     db: Session = Depends(get_db),
     _user: UserIdentity = Depends(get_current_user),
+    _limiter: None = Depends(ai_analysis_limiter),
 ):
     try:
         result = disaster_agent_service.analyze_situation(db, target_incident_id=req.incident_id)
@@ -249,6 +251,7 @@ def run_disaster_simulation(
     req: RunSimulationRequest,
     db: Session = Depends(get_db),
     current_user: UserIdentity = Depends(get_current_user),
+    _limiter: None = Depends(simulation_limiter),
 ):
     try:
         operator_label = f"{current_user.user_id} ({current_user.role})"
